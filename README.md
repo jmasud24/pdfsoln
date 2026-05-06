@@ -8,12 +8,27 @@
 
 ## ✨ Features
 
-- **Merge PDF:** Combine multiple PDF files into a single document in seconds.
-- **Split PDF:** Extract specific pages or split a large PDF into smaller files[cite: 1].
-- **Image to PDF:** Convert your images (JPG, PNG) into a high-quality PDF document[cite: 1].
-- **PDF to Word/Text:** Extract content from your PDFs easily[cite: 1].
-- **Compress PDF:** Reduce file size without losing significant quality[cite: 1].
-- **Secure & Private:** All processing is done securely, ensuring your data remains private[cite: 1].
+### 📄 PDF Manipulation
+- **Merge PDF:** Combine multiple PDF files into one single document.
+- **Split PDF:** Separate a PDF into multiple documents or extract specific pages[cite: 1].
+- **Compress PDF:** Reduce the file size of your PDF without losing quality[cite: 1].
+- **Organize PDF:** Reorder, add, or delete pages within a PDF file[cite: 1].
+- **Repair PDF:** Fix damaged or corrupted PDF files[cite: 1].
+
+### 🔄 Conversion Tools
+- **Image to PDF:** Convert JPG, PNG, and other images to PDF format[cite: 1].
+- **PDF to JPG/PNG:** Extract images from a PDF or convert pages into images[cite: 1].
+- **PDF to Word:** Transform PDF documents into editable Word files[cite: 1].
+- **PDF to Excel:** Convert PDF data tables into Excel spreadsheets[cite: 1].
+- **PDF to PowerPoint:** Change PDF slides into PPT presentations[cite: 1].
+- **Word/Excel/PPT to PDF:** Convert various Office documents into PDF format[cite: 1].
+- **HTML to PDF:** Convert web pages directly into PDF documents[cite: 1].
+
+### 🔒 Security & Optimization
+- **Watermark PDF:** Add custom text or image watermarks for branding and security[cite: 1].
+- **Rotate PDF:** Rotate pages to the correct orientation[cite: 1].
+- **Page Numbers:** Add page numbers to your documents easily[cite: 1].
+- **Edit PDF:** Add text, shapes, or annotations directly to your PDF[cite: 1].
 
 ## 🛠️ Tech Stack
 
