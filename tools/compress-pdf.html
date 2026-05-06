@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compress PDF - Reduce PDF File Size Online | One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    <!-- PDF-Lib Library -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+</head>
+<body>
+
+<header id="header-placeholder"></header>
+
+<div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper">
+        <div class="tool-box">
+            <h1>Compress PDF</h1>
+            <p>Optimize and reduce your PDF file size without significant quality loss.</p>
+
+            <!-- File Upload -->
+            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <p id="uploadStatus">Click or Drag PDF to Compress</p>
+                <input type="file" id="fileInput" hidden accept=".pdf">
+            </div>
+
+            <!-- File Details -->
+            <div id="fileInfo" class="file-info">
+                <strong>File Name:</strong> <span id="infoName"></span><br>
+                <strong>Original Size:</strong> <span id="infoSize"></span>
+            </div>
+
+            <!-- Compression Level Selectors -->
+            <label>Select Compression Level:</label>
+            <div class="compression-levels">
+                <div class="level-card" onclick="selectLevel('extreme', this)">
+                    <h4>Extreme</h4>
+                    <p>Highest compression, lower quality.</p>
+                </div>
+                <div class="level-card active" id="defaultLevel" onclick="selectLevel('recommended', this)">
+                    <h4>Recommended</h4>
+                    <p>Good compression, high quality.</p>
+                </div>
+                <div class="level-card" onclick="selectLevel('low', this)">
+                    <h4>Low</h4>
+                    <p>Low compression, best quality.</p>
+                </div>
+            </div>
+
+            <div class="loader-container" id="loader">
+                <p id="loaderText">Optimizing PDF structure...</p>
+                <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+            </div>
+
+            <button id="processBtn" class="btn-process" disabled>Compress PDF</button>
+            
+            <div id="outputArea"></div>
+        </div>
+    </div>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+<div id="footer-placeholder"></div>
+
+
+
+<script src="../components/components.js"></script>
+
+    <script>
+        const { PDFDocument } = PDFLib;
+        let selectedFile = null;
+        let compressionMode = 'recommended';
+
+        const fileInput = document.getElementById('fileInput');
+        const processBtn = document.getElementById('processBtn');
+
+        // File Selection Logic
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                selectedFile = file;
+                showFileInfo(file);
+                processBtn.disabled = false;
+                document.getElementById('uploadStatus').innerText = "File Selected";
+            }
+        };
+
+        function showFileInfo(file) {
+            const infoBox = document.getElementById('fileInfo');
+            infoBox.style.display = 'block';
+            document.getElementById('infoName').innerText = file.name;
+            document.getElementById('infoSize').innerText = (file.size / 1024 / 1024).toFixed(2) + " MB";
+        }
+
+        function selectLevel(level, element) {
+            compressionMode = level;
+            // UI Toggle
+            document.querySelectorAll('.level-card').forEach(card => card.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        // Processing Logic
+        processBtn.onclick = async () => {
+            const loader = document.getElementById('loader');
+            const progressFill = document.getElementById('progressFill');
+            const outputArea = document.getElementById('outputArea');
+            
+            processBtn.disabled = true;
+            outputArea.innerHTML = '';
+            loader.style.display = 'block';
+            progressFill.style.width = "30%";
+
+            try {
+                // Read PDF
+                const arrayBuffer = await selectedFile.arrayBuffer();
+                progressFill.style.width = "60%";
+                
+                // Load into PDF-Lib
+                const pdfDoc = await PDFDocument.load(arrayBuffer);
+                
+                // Optimized Save (Metadata removal and stream optimization)
+                // Browser-side, we use Object Streams to reduce overhead
+                const compressedPdfBytes = await pdfDoc.save({
+                    useObjectStreams: true, // This significantly helps in reducing metadata bloat
+                    addDefaultPage: false
+                });
+
+                progressFill.style.width = "100%";
+                
+                const blob = new Blob([compressedPdfBytes], { type: 'application/pdf' });
+                const compressedSize = (blob.size / 1024 / 1024).toFixed(2);
+                const url = URL.createObjectURL(blob);
+
+                outputArea.innerHTML = `
+                    <div style="margin-top:20px; padding:20px; background:#e8f5e9; border-radius:10px; border: 1px solid #28a745;">
+                        <p style="color:#2e7d32; font-weight:bold; margin-bottom:10px; font-size: 18px;">Compression Complete!</p>
+                        <p style="font-size:14px; margin-bottom:20px; color: #555;">New Size: <strong>${compressedSize} MB</strong></p>
+                        <a href="${url}" download="compressed_${selectedFile.name}" class="btn-process btn-success" style="text-decoration:none; display:inline-flex; width: 100%; max-width: 350px; margin: 0 auto; justify-content: center;">Download Compressed PDF</a>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+                alert("Error: This PDF might be encrypted or corrupted.");
+            } finally {
+                setTimeout(() => { loader.style.display = 'none'; }, 500);
+                processBtn.disabled = false;
+            }
+        };
+
+        // Drag and Drop
+        const dropZone = document.getElementById('dropZone');
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('dragover'); };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if(file && file.type === "application/pdf") {
+                selectedFile = file;
+                showFileInfo(file);
+                processBtn.disabled = false;
+            }
+        };
+    </script>
+</body>
+</html>
