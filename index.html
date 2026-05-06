@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Solⁿ - Professional Client-Side PDF Utilities</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Homepage Specific Overrides if any */
+        body { background-color: var(--bg); }
+    </style>
+</head>
+<body>
+
+    <!-- Header will be injected here -->
+    <header id="header-placeholder"></header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero">
+            <h1>All the PDF Tools You Need, <span>in One Place.</span></h1>
+            <p>A professional suite of completely free, 100% private, client-side PDF utilities. No limits, no data uploads, pure performance.</p>
+        </section>
+
+        <!-- Tool Grid -->
+        <section class="container">
+            <div class="grid" id="mainGrid">
+                <!-- Tools will be injected here via JavaScript -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer will be injected here -->
+    <div id="footer-placeholder"></div>
+
+    <script src="components/components.js"></script>
+    <script>
+        // Data for 27 Tools
+        const tools = [
+            { name: "Merge PDF", icon: "🔗", desc: "Combine multiple PDFs into one document easily.", link: "tools/merge-pdf.html", new: true },
+            { name: "Split PDF", icon: "✂️", desc: "Extract pages from your PDF or save each page as a PDF.", link: "tools/split-pdf.html", new: true },
+            { name: "Compress PDF", icon: "📉", desc: "Reduce the size of your PDF without losing quality.", link: "tools/compress-pdf.html", new: true },
+            { name: "PDF to Word", icon: "📄", desc: "Convert PDF documents to editable Word files.", link: "tools/pdf-to-word.html" },
+            { name: "Word to PDF", icon: "📝", desc: "Turn DOCX files into professional PDF documents.", link: "tools/word-to-pdf.html" },
+            { name: "PDF to JPG", icon: "🖼️", desc: "Convert each PDF page into a high-quality JPG image.", link: "tools/pdf-to-jpg.html" },
+            { name: "JPG to PDF", icon: "📷", desc: "Convert JPG, PNG, or BMP images into a PDF file.", link: "tools/jpg-to-pdf.html" },
+            { name: "Sign PDF", icon: "🖊️", desc: "Draw or upload your digital signature to any document.", link: "tools/sign-pdf.html" },
+            { name: "Watermark", icon: "🖋️", desc: "Add text or image watermarks to protect your PDF.", link: "tools/watermark.html" },
+            { name: "Rotate PDF", icon: "🔄", desc: "Rotate your PDF pages 90, 180, or 270 degrees.", link: "tools/rotate-pdf.html" },
+            { name: "PDF to Excel", icon: "📁", desc: "Extract tables from PDF into Excel spreadsheets.", link: "tools/pdf-to-excel.html" },
+            { name: "Excel to PDF", icon: "📊", desc: "Convert XLSX sheets to PDF format.", link: "tools/excel-to-pdf.html" },
+            { name: "HTML to PDF", icon: "🌐", desc: "Save any web page or HTML file as a PDF.", link: "tools/html-to-pdf.html" },
+            { name: "PNG to PDF", icon: "🖼️", desc: "Convert PNG images into a PDF document.", link: "tools/png-to-pdf.html" },
+            { name: "PDF to PNG", icon: "✨", desc: "Convert PDF pages into transparent PNG images.", link: "tools/pdf-to-png.html" },
+            { name: "Organize PDF", icon: "🗂️", desc: "Reorder, add, or delete pages in your PDF.", link: "tools/organize-pdf.html" },
+            { name: "Extract Images", icon: "🎞️", desc: "Extract all embedded images from a PDF file.", link: "tools/extract-images.html" },
+            { name: "Scan to PDF", icon: "📷", desc: "Scan documents via camera and save as PDF.", link: "tools/scan-to-pdf.html" },
+            { name: "Page Numbers", icon: "🔢", desc: "Add page numbers to your PDF with custom styling.", link: "tools/page-numbers.html" },
+            { name: "Repair PDF", icon: "🛠️", desc: "Recover data from corrupted or damaged PDF files.", link: "tools/repair-pdf.html" }
+        ];
+
+        // Generate Grid
+        document.addEventListener('DOMContentLoaded', () => {
+            const grid = document.getElementById('mainGrid');
+            tools.forEach((tool) => {
+                const card = document.createElement('a');
+                card.href = tool.link;
+                card.className = 'tool-card';
+                card.innerHTML = `
+                    ${tool.new ? '<span class="badge-new">New</span>' : ''}
+                    <div class="tool-icon">${tool.icon}</div>
+                    <h3>${tool.name}</h3>
+                    <p>${tool.desc}</p>
+                `;
+                grid.appendChild(card);
+            });
+        });
+    </script>
+</body>
+</html>
