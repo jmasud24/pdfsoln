@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merge PDF - Combine PDF Files Online | One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    <!-- PDF-Lib Library for Client-side Merging -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+<div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper">
+        <div class="tool-box">
+            <h1>Merge PDF Files Online - 100% Free, Secure & No Server Upload</h1>
+            <p>Combine multiple PDF files into a single document in seconds.</p>
+
+            <!-- Multi-file Upload Area -->
+            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <p id="uploadStatus">Click or Drag multiple PDFs here</p>
+                <input type="file" id="fileInput" hidden multiple accept=".pdf">
+            </div>
+
+            <!-- List of selected files -->
+            <div class="file-list-container" id="fileListContainer">
+                <!-- File items will be injected here -->
+            </div>
+
+            <div id="loader" class="loader">Merging files, please wait...</div>
+
+            <button id="processBtn" class="btn-process" disabled>Merge PDF Files</button>
+            
+            <div id="outputArea"></div>
+        </div>
+    </div>
+    <!-- SEO Article Section Starts -->
+<div class="seo-article-container">
+    
+    <h1>Merge PDF Files Online - 100% Free, Private & Secure</h1>
+    
+    <p>
+        Need to combine multiple PDF documents into one? Our <strong>Merge PDF tool</strong> at <strong>One Page Tools</strong> provides a fast and secure way to join your files without compromising your privacy. Unlike most online converters, our tool works entirely within your browser, meaning your sensitive documents are never uploaded to any server. 
+    </p>
+
+    <h2>Why Use Our Client-Side PDF Merger?</h2>
+    <p>
+        Most online PDF tools require you to upload your files to their servers, which can be a security risk for confidential documents. Our tool uses <strong>PDF-Lib technology</strong> to process everything locally on your device. This ensures:
+    </p>
+    <ul>
+        <li><strong>Maximum Privacy:</strong> Your files stay on your computer. We don't see or store them.</li>
+        <li><strong>Instant Processing:</strong> No waiting for uploads or downloads from a remote server.</li>
+        <li><strong>High-Quality Output:</strong> Merge files while maintaining original text, images, and formatting.</li>
+        <li><strong>No Limits:</strong> Merge as many files as you want for free, with no watermarks.</li>
+    </ul>
+
+    <h2>How to Merge PDF Files (Step-by-Step)</h2>
+    <p>Combining your PDFs is simple and takes just a few clicks. Follow these easy steps:</p>
+    <ol>
+        <li><strong>Upload Files:</strong> Click the "Upload Area" or drag and drop multiple PDF files.</li>
+        <li><strong>Review Your List:</strong> You will see a list of selected files. If you added a wrong file, simply click the <strong>"✕"</strong> icon to remove it.</li>
+        <li><strong>Start Merging:</strong> Once you have at least two files, click the <strong>"Merge PDF Files"</strong> button.</li>
+        <li><strong>Download:</strong> After a few seconds, a "Download Merged PDF" button will appear. Click it to save your combined document.</li>
+    </ol>
+
+    <h2>Frequently Asked Questions (FAQs)</h2>
+    <p>Click on the questions below to see the answers:</p>
+
+    <!-- Accordion Style FAQs -->
+    <div class="faq-section">
+        <details>
+            <summary>Is it safe to merge my confidential PDFs here?</summary>
+            <div class="faq-content">
+                <p>Yes, it is 100% safe. Our tool processes your files locally using JavaScript. Your data never leaves your browser and is never uploaded to our servers, making it the most secure way to handle private documents.</p>
+            </div>
+        </details>
+
+        <details class="inner-d">
+            <details>
+            <summary>Do I need to pay or register an account?</summary>
+            <div class="faq-content">
+                <p>No registration or payment is required. You can merge unlimited PDF files for free without any daily limits or hidden costs.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary>Does this tool add watermarks to my PDF?</summary>
+            <div class="faq-content">
+                <p>Absolutely not! We do not add any watermarks or branding to your merged documents. You get a clean, professional PDF file.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary>Which browsers are supported?</summary>
+            <div class="faq-content">
+                <p>Our tool works on all modern web browsers, including Google Chrome, Mozilla Firefox, Microsoft Edge, and Safari, on both desktop and mobile devices.</p>
+            </div>
+        </details>
+    </div>
+
+</div>
+<!-- SEO Article Section Ends -->
+
+<div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+<div id="footer-placeholder"></div>
+
+
+
+<script src="../components/components.js"></script>
+
+    <script>
+        const { PDFDocument } = PDFLib;
+        let selectedFiles = [];
+
+        const fileInput = document.getElementById('fileInput');
+        const fileListContainer = document.getElementById('fileListContainer');
+        const processBtn = document.getElementById('processBtn');
+
+        // Handle File Selection
+        fileInput.onchange = (e) => {
+            handleFiles(e.target.files);
+        };
+
+        function handleFiles(files) {
+            const newFiles = Array.from(files);
+            selectedFiles = [...selectedFiles, ...newFiles];
+            updateUI();
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            updateUI();
+        }
+
+        function updateUI() {
+            if (selectedFiles.length > 0) {
+                fileListContainer.style.display = 'block';
+                fileListContainer.innerHTML = selectedFiles.map((file, index) => `
+                    <div class="file-item">
+                        <span class="file-name">${index + 1}. ${file.name}</span>
+                        <span class="remove-btn" onclick="removeFile(${index})">✕</span>
+                    </div>
+                `).join('');
+            } else {
+                fileListContainer.style.display = 'none';
+            }
+            
+            // Enable button only if 2 or more files are selected
+            processBtn.disabled = selectedFiles.length < 2;
+            if(selectedFiles.length < 2 && selectedFiles.length > 0) {
+                document.getElementById('uploadStatus').innerText = "Add at least one more PDF";
+            } else if(selectedFiles.length >= 2) {
+                document.getElementById('uploadStatus').innerText = selectedFiles.length + " files selected";
+            } else {
+                document.getElementById('uploadStatus').innerText = "Click or Drag multiple PDFs here";
+            }
+        }
+
+        // Logic to Merge PDF
+        processBtn.onclick = async () => {
+            const loader = document.getElementById('loader');
+            const outputArea = document.getElementById('outputArea');
+            
+            processBtn.disabled = true;
+            loader.style.display = 'block';
+            outputArea.innerHTML = '';
+
+            try {
+                // Create a new PDF document
+                const mergedPdf = await PDFDocument.create();
+
+                for (const file of selectedFiles) {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await PDFDocument.load(arrayBuffer);
+                    
+                    // Copy all pages from the current PDF to the merged PDF
+                    const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                    copiedPages.forEach((page) => mergedPdf.addPage(page));
+                }
+
+                // Serialize the PDF document to bytes (a Uint8Array)
+                const pdfBytes = await mergedPdf.save();
+
+                // Create a blob and download link
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+
+                outputArea.innerHTML = `
+                    <div style="margin-top:20px;">
+                        <a href="${url}" download="merged_document.pdf" class="btn-process btn-success" style="text-decoration:none;">Download Merged PDF</a>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+                alert("An error occurred while merging. Please ensure all files are valid PDFs.");
+            } finally {
+                loader.style.display = 'none';
+                processBtn.disabled = false;
+            }
+        };
+
+        // Drag and Drop Support
+        const dropZone = document.getElementById('dropZone');
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('dragover'); };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        };
+    </script>
+</body>
+</html>

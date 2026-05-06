@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extract Images from PDF Online - Free & Secure | One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    
+    <!-- PDF.js Library for Parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    </script>
+    
+    <!-- JSZip Library for Batch Downloading -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <style>
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+            display: none;
+        }
+
+        .image-card {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: 0.3s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .image-card:hover {
+            border-color: var(--primary-red);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            transform: translateY(-5px);
+        }
+
+        .image-preview {
+            max-width: 100%;
+            height: 150px;
+            object-fit: contain;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            background: #f8f8fa;
+        }
+
+        .image-info {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 15px;
+            line-height: 1.4;
+        }
+
+        .image-info strong {
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .controls-area {
+            display: none;
+            margin-top: 30px;
+            text-align: center;
+            padding: 20px;
+            background: #f8f8fa;
+            border-radius: 10px;
+            border: 1px dashed #ccc;
+        }
+
+        .loader-text {
+            font-weight: 600;
+            color: var(--primary-red);
+            margin-top: 15px;
+            font-size: 16px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            margin-top: 15px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: var(--primary-red);
+            width: 0%;
+            transition: 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper" style="max-width: 728px;">
+        <div class="tool-box">
+            <h1>Extract Images from PDF</h1>
+            <p>Automatically scan your PDF file and extract all embedded images in high quality. 100% processed securely in your browser.</p>
+
+            <div id="uploadSection">
+                <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                    <p id="uploadStatus">Click or Drag a PDF file here</p>
+                    <input type="file" id="fileInput" hidden accept=".pdf">
+                </div>
+            </div>
+
+            <div id="loaderArea" style="display: none; text-align: center; margin: 30px 0;">
+                <div class="loader-text" id="statusText">Reading PDF file...</div>
+                <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+            </div>
+
+            <div class="controls-area" id="controlsArea">
+                <h3 style="margin-bottom: 10px;">Extraction Complete!</h3>
+                <p id="extractionSummary" style="margin-bottom: 20px; color: #555;">Found X images.</p>
+                <button id="downloadZipBtn" class="btn-process btn-success" onclick="downloadAllAsZip()">Download All as ZIP</button>
+                <button onclick="location.reload()" class="btn-process" style="margin-left: 10px; background: #6c757d;">Extract Another PDF</button>
+            </div>
+
+            <!-- Grid for Images -->
+            <div class="preview-grid" id="imagesGrid"></div>
+            
+        </div>
+    </div>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="../components/components.js"></script>
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const imagesGrid = document.getElementById('imagesGrid');
+        const controlsArea = document.getElementById('controlsArea');
+        const loaderArea = document.getElementById('loaderArea');
+        const statusText = document.getElementById('statusText');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+
+        let extractedImages = []; // Stores objects: { url, name, format }
+
+        // Drag & Drop Upload
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('dragover'); };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        };
+        fileInput.onchange = (e) => handleFile(e.target.files[0]);
+
+        async function handleFile(file) {
+            if (!file || file.type !== "application/pdf") {
+                alert("Please upload a valid PDF file.");
+                return;
+            }
+            
+            document.getElementById('uploadSection').style.display = 'none';
+            loaderArea.style.display = 'block';
+            progressBar.style.display = 'block';
+            imagesGrid.innerHTML = '';
+            imagesGrid.style.display = 'none';
+            controlsArea.style.display = 'none';
+            extractedImages = [];
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                await extractImagesFromPdf(arrayBuffer, file.name.replace('.pdf', ''));
+            } catch (error) {
+                console.error("Error processing PDF:", error);
+                alert("Failed to read the PDF. It might be corrupted or encrypted.");
+                document.getElementById('uploadSection').style.display = 'block';
+            } finally {
+                loaderArea.style.display = 'none';
+            }
+        }
+
+        async function extractImagesFromPdf(pdfData, baseFileName) {
+            const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfData) });
+            const pdf = await loadingTask.promise;
+            
+            let imageCounter = 1;
+
+            for (let i = 1; i <= pdf.numPages; i++) {
+                statusText.innerText = `Scanning page ${i} of ${pdf.numPages}...`;
+                progressFill.style.width = `${(i / pdf.numPages) * 100}%`;
+                
+                try {
+                    const page = await pdf.getPage(i);
+                    const operatorList = await page.getOperatorList();
+                    
+                    for (let j = 0; j < operatorList.fnArray.length; j++) {
+                        const fn = operatorList.fnArray[j];
+                        
+                        // Check if the operation is painting an image
+                        if (fn === pdfjsLib.OPS.paintImageXObject || fn === pdfjsLib.OPS.paintInlineImageXObject) {
+                            const imgName = operatorList.argsArray[j][0];
+                            try {
+                                const img = await page.objs.get(imgName);
+                                if (img) {
+                                    const blob = await convertImageToBlob(img);
+                                    if (blob) {
+                                        const url = URL.createObjectURL(blob);
+                                        const format = blob.type.split('/')[1] || 'png';
+                                        const fileName = `${baseFileName}_img_${imageCounter}.${format}`;
+                                        
+                                        extractedImages.push({
+                                            url: url,
+                                            blob: blob,
+                                            name: fileName,
+                                            width: img.width,
+                                            height: img.height,
+                                            format: format.toUpperCase()
+                                        });
+                                        imageCounter++;
+                                    }
+                                }
+                            } catch (imgError) {
+                                console.warn(`Could not extract image ${imgName} on page ${i}`, imgError);
+                            }
+                        }
+                    }
+                } catch (pageError) {
+                    console.warn(`Could not process page ${i}`, pageError);
+                }
+            }
+            
+            displayExtractedImages();
+        }
+
+        async function convertImageToBlob(img) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+
+            if (img.bitmap) {
+                // Modern PDF.js uses ImageBitmap
+                ctx.drawImage(img.bitmap, 0, 0);
+            } else if (img.data) {
+                // Fallback for raw pixel arrays
+                let data = img.data;
+                let rgbaData;
+                
+                if (data.length === img.width * img.height * 4) {
+                    rgbaData = data;
+                } else if (data.length === img.width * img.height * 3) {
+                    rgbaData = new Uint8ClampedArray(img.width * img.height * 4);
+                    for (let i = 0, j = 0; i < data.length; i += 3, j += 4) {
+                        rgbaData[j] = data[i];
+                        rgbaData[j+1] = data[i+1];
+                        rgbaData[j+2] = data[i+2];
+                        rgbaData[j+3] = 255;
+                    }
+                } else if (data.length === img.width * img.height) {
+                    rgbaData = new Uint8ClampedArray(img.width * img.height * 4);
+                    for (let i = 0, j = 0; i < data.length; i++, j += 4) {
+                        rgbaData[j] = data[i];
+                        rgbaData[j+1] = data[i];
+                        rgbaData[j+2] = data[i];
+                        rgbaData[j+3] = 255;
+                    }
+                } else {
+                    console.warn("Unsupported image pixel format.");
+                    return null;
+                }
+
+                const imgData = new ImageData(new Uint8ClampedArray(rgbaData), img.width, img.height);
+                ctx.putImageData(imgData, 0, 0);
+            } else {
+                return null;
+            }
+
+            return new Promise((resolve) => {
+                canvas.toBlob((blob) => {
+                    resolve(blob);
+                }, "image/png");
+            });
+        }
+
+        function displayExtractedImages() {
+            if (extractedImages.length === 0) {
+                controlsArea.style.display = 'block';
+                document.getElementById('extractionSummary').innerText = "No images were found in this PDF.";
+                document.getElementById('downloadZipBtn').style.display = 'none';
+                return;
+            }
+
+            imagesGrid.style.display = 'grid';
+            controlsArea.style.display = 'block';
+            document.getElementById('extractionSummary').innerText = `Successfully extracted ${extractedImages.length} images.`;
+            document.getElementById('downloadZipBtn').style.display = 'inline-block';
+
+            extractedImages.forEach((imgObj, index) => {
+                const card = document.createElement('div');
+                card.className = 'image-card';
+                
+                // Convert size to KB/MB
+                const sizeKB = (imgObj.blob.size / 1024).toFixed(1);
+                const sizeStr = sizeKB > 1024 ? (sizeKB / 1024).toFixed(2) + ' MB' : sizeKB + ' KB';
+
+                card.innerHTML = `
+                    <div>
+                        <img src="${imgObj.url}" class="image-preview" alt="Extracted Image ${index+1}">
+                        <div class="image-info">
+                            <strong>${imgObj.name}</strong>
+                            ${imgObj.width} x ${imgObj.height} px<br>
+                            Size: ${sizeStr}
+                        </div>
+                    </div>
+                    <a href="${imgObj.url}" download="${imgObj.name}" class="btn-process" style="padding: 8px; font-size: 13px; text-decoration: none;">Download Image</a>
+                `;
+                imagesGrid.appendChild(card);
+            });
+        }
+
+        async function downloadAllAsZip() {
+            const btn = document.getElementById('downloadZipBtn');
+            const originalText = btn.innerText;
+            btn.innerText = "Creating ZIP...";
+            btn.disabled = true;
+
+            try {
+                const zip = new JSZip();
+                
+                extractedImages.forEach((img) => {
+                    zip.file(img.name, img.blob);
+                });
+
+                const content = await zip.generateAsync({ type: "blob" });
+                const zipUrl = URL.createObjectURL(content);
+                
+                const a = document.createElement("a");
+                a.href = zipUrl;
+                a.download = "Extracted_Images.zip";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            } catch (err) {
+                console.error("Error creating ZIP:", err);
+                alert("Failed to create ZIP file.");
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

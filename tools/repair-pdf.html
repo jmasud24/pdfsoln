@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repair PDF - Fix Corrupted Documents Online | One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    
+    <!-- PDF-Lib Library for Structural Repair -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    
+    <!-- PDF.js Library for Deep Recovery Fallback -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    </script>
+
+    <style>
+        .process-container {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .log-box {
+            background: #111827;
+            border-radius: 8px;
+            padding: 20px;
+            height: 250px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
+            color: #d1d5db;
+            text-align: left;
+            margin-bottom: 20px;
+            border: 2px solid #374151;
+            box-shadow: inset 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .log-line {
+            margin-bottom: 8px;
+            border-bottom: 1px dashed #374151;
+            padding-bottom: 4px;
+        }
+
+        .log-time {
+            color: #6b7280;
+            margin-right: 10px;
+        }
+
+        .log-info { color: #60a5fa; }
+        .log-success { color: #34d399; font-weight: bold; }
+        .log-error { color: #f87171; font-weight: bold; }
+        .log-warn { color: #fbbf24; }
+
+        .loader-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary-red);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .success-area {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #e8f5e9;
+            border-radius: 10px;
+            border: 1px solid #28a745;
+            text-align: center;
+        }
+
+        .fail-area {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            background: #fee2e2;
+            border-radius: 10px;
+            border: 1px solid #dc2626;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper" style="max-width: 728px;">
+        <div class="tool-box">
+            <h1>Repair PDF</h1>
+            <p>Fix corrupted, damaged, or broken PDF documents using our advanced 2-step recovery engine. 100% processed safely in your browser.</p>
+
+            <div id="uploadSection">
+                <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                    <p id="uploadStatus">Click or Drag a Corrupted PDF file here</p>
+                    <input type="file" id="fileInput" hidden accept=".pdf">
+                </div>
+            </div>
+
+            <div class="process-container" id="processContainer">
+                <div class="loader-wrapper" id="loaderWrapper">
+                    <div class="spinner"></div>
+                    <div class="status-header" id="statusHeader">Repairing Document...</div>
+                </div>
+
+                <div class="log-box" id="logBox">
+                    <!-- Logs will be injected here -->
+                </div>
+
+                <div class="success-area" id="successArea">
+                    <p style="color:#28a745; font-weight:bold; margin-bottom: 10px; font-size: 18px;">Repair Successful!</p>
+                    <p id="recoveryStats" style="margin-bottom: 20px; color: #555;"></p>
+                    <a href="#" id="downloadLink" download="repaired_document.pdf" class="btn-process btn-success" style="text-decoration:none; display:inline-block; margin-bottom:15px; padding: 12px 30px;">Download Repaired PDF</a>
+                    <div>
+                        <button onclick="location.reload()" class="btn-process" style="background:#6c757d; border:none; padding: 8px 20px; font-size: 14px;">Repair Another File</button>
+                    </div>
+                </div>
+
+                <div class="fail-area" id="failArea">
+                    <p style="color:#dc2626; font-weight:bold; margin-bottom: 10px; font-size: 18px;">Recovery Failed</p>
+                    <p style="margin-bottom: 20px; color: #7f1d1d;">The file is too heavily corrupted and contains no readable data. Recovery is impossible.</p>
+                    <button onclick="location.reload()" class="btn-process" style="background:#6c757d; border:none;">Try Another File</button>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="../components/components.js"></script>
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const uploadSection = document.getElementById('uploadSection');
+        const processContainer = document.getElementById('processContainer');
+        const logBox = document.getElementById('logBox');
+        const loaderWrapper = document.getElementById('loaderWrapper');
+        const statusHeader = document.getElementById('statusHeader');
+        const successArea = document.getElementById('successArea');
+        const failArea = document.getElementById('failArea');
+        const recoveryStats = document.getElementById('recoveryStats');
+        const downloadLink = document.getElementById('downloadLink');
+
+        let originalFileName = "";
+
+        // Drag & Drop Upload
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('dragover'); };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        };
+        fileInput.onchange = (e) => handleFile(e.target.files[0]);
+
+        function addLog(message, type = 'info') {
+            const time = new Date().toLocaleTimeString([], { hour12: false });
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            line.innerHTML = `<span class="log-time">[${time}]</span><span class="log-${type}">${message}</span>`;
+            logBox.appendChild(line);
+            logBox.scrollTop = logBox.scrollHeight;
+            return new Promise(resolve => setTimeout(resolve, 100)); // Small delay for UI update
+        }
+
+        async function handleFile(file) {
+            if (!file || file.type !== "application/pdf") {
+                alert("Please upload a PDF file.");
+                return;
+            }
+            
+            originalFileName = file.name.replace('.pdf', '');
+            uploadSection.style.display = 'none';
+            processContainer.style.display = 'block';
+
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                await startRepairEngine(arrayBuffer);
+            } catch (error) {
+                await addLog("Failed to read file from disk.", "error");
+                showFailure();
+            }
+        }
+
+        async function startRepairEngine(pdfBytes) {
+            await addLog("Starting Diagnostic Engine...", "info");
+            await addLog(`File Size: ${(pdfBytes.byteLength / 1024 / 1024).toFixed(2)} MB`, "info");
+
+            let finalPdfBytes = null;
+            let recoveredPageCount = 0;
+            let methodUsed = "";
+
+            // ----------------------------------------------------
+            // STEP 1: Standard Structural Repair (pdf-lib)
+            // ----------------------------------------------------
+            await addLog("Step 1: Attempting Standard Structural Repair...", "warn");
+            try {
+                const { PDFDocument } = PDFLib;
+                
+                // Load with resilient flags
+                const pdfDoc = await PDFDocument.load(pdfBytes, { 
+                    ignoreEncryption: true, 
+                    throwOnInvalidObject: false 
+                });
+                
+                recoveredPageCount = pdfDoc.getPageCount();
+                await addLog(`Structure partially decoded. Found ${recoveredPageCount} pages.`, "success");
+                
+                await addLog("Rebuilding cross-reference (XREF) tables and metadata...", "info");
+                // Save rebuilds structure completely
+                finalPdfBytes = await pdfDoc.save({ useObjectStreams: true });
+                methodUsed = "Standard Repair";
+                
+                await addLog("Step 1 Successful! File structure reconstructed.", "success");
+
+            } catch (err1) {
+                console.error("Step 1 Error:", err1);
+                await addLog("Step 1 Failed: Severe structural damage detected.", "error");
+                await addLog(`Error details: ${err1.message}`, "warn");
+
+                // ----------------------------------------------------
+                // STEP 2: Deep Recovery Fallback (pdf.js visual rendering)
+                // ----------------------------------------------------
+                await addLog("Booting Step 2: Deep Recovery Visual Engine...", "warn");
+                
+                try {
+                    const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfBytes) });
+                    const pdf = await loadingTask.promise;
+                    const totalPages = pdf.numPages;
+                    
+                    await addLog(`Deep Recovery Engine detected ${totalPages} readable pages.`, "info");
+                    
+                    const { PDFDocument } = PDFLib;
+                    const newPdfDoc = await PDFDocument.create();
+                    
+                    for (let i = 1; i <= totalPages; i++) {
+                        await addLog(`Attempting to rescue content from Page ${i}...`, "info");
+                        try {
+                            const page = await pdf.getPage(i);
+                            const scale = 2.0; // High res
+                            const viewport = page.getViewport({ scale: scale });
+
+                            const canvas = document.createElement('canvas');
+                            const context = canvas.getContext('2d');
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+
+                            const renderContext = {
+                                canvasContext: context,
+                                viewport: viewport
+                            };
+                            
+                            await page.render(renderContext).promise;
+                            
+                            // Convert canvas to JPEG bytes
+                            const imgDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                            const base64Data = imgDataUrl.split(',')[1];
+                            const imgBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+                            
+                            // Embed into new healthy PDF
+                            const image = await newPdfDoc.embedJpg(imgBytes);
+                            const newPage = newPdfDoc.addPage([viewport.width, viewport.height]);
+                            newPage.drawImage(image, {
+                                x: 0,
+                                y: 0,
+                                width: viewport.width,
+                                height: viewport.height,
+                            });
+                            
+                            recoveredPageCount++;
+                            await addLog(`[SUCCESS] Rescued Page ${i}!`, "success");
+
+                        } catch (pageErr) {
+                            await addLog(`[ERROR] Failed to rescue Page ${i}: Content totally destroyed.`, "error");
+                        }
+                    }
+
+                    if (recoveredPageCount > 0) {
+                        await addLog("Generating new healthy PDF structure...", "info");
+                        finalPdfBytes = await newPdfDoc.save();
+                        methodUsed = "Deep Recovery";
+                        await addLog("Step 2 Successful! Content visually recovered.", "success");
+                    } else {
+                        throw new Error("Zero pages could be recovered.");
+                    }
+
+                } catch (err2) {
+                    console.error("Step 2 Error:", err2);
+                    await addLog("Deep Recovery Engine Failed.", "error");
+                    await addLog("The file contains no readable data blocks. Recovery is impossible.", "error");
+                    showFailure();
+                    return;
+                }
+            }
+
+            // Provide Download
+            if (finalPdfBytes) {
+                showSuccess(finalPdfBytes, recoveredPageCount, methodUsed);
+            }
+        }
+
+        function showSuccess(bytes, count, method) {
+            loaderWrapper.style.display = 'none';
+            successArea.style.display = 'block';
+            
+            recoveryStats.innerText = `Successfully rescued ${count} pages using ${method}.`;
+            
+            const blob = new Blob([bytes], { type: 'application/pdf' });
+            const url = URL.createObjectURL(blob);
+            
+            downloadLink.href = url;
+            downloadLink.download = `${originalFileName}_repaired.pdf`;
+        }
+
+        function showFailure() {
+            loaderWrapper.style.display = 'none';
+            failArea.style.display = 'block';
+        }
+
+    </script>
+</body>
+</html>

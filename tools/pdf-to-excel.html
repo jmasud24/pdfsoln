@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Excel - Convert PDF Tables to XLSX Online | One Page Tools</title>
+    <!-- Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            font-weight: bold;
+            color: var(--primary-red);
+        }
+        .status-msg {
+            font-size: 13px;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <div class="ad-container">Advertisement Placeholder (728x90)</div>
+
+    <div class="tool-wrapper" style="max-width: 800px;">
+        <div class="tool-box">
+            <h1>PDF to Excel</h1>
+            <p>Extract tables from PDF files into editable Excel spreadsheets (.xlsx) privately.</p>
+
+            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <p id="uploadStatus">Click to upload PDF to Convert</p>
+                <input type="file" id="fileInput" hidden accept=".pdf">
+            </div>
+
+            <div id="loader">
+                <p>Analyzing PDF Structure...</p>
+                <div class="status-msg">Extracted Page: <span id="currentPage">0</span> / <span id="totalPage">0</span></div>
+            </div>
+
+            <button id="processBtn" class="btn-process" disabled onclick="convertToExcel()">Convert to Excel</button>
+            
+            <div id="outputArea"></div>
+        </div>
+    </div>
+
+    <div class="ad-container">Advertisement Placeholder (728x90)</div>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="../components/components.js"></script>
+    <script>
+        // Component Loader
+        
+        
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        
+        let pdfFile = null;
+
+        document.getElementById('fileInput').onchange = (e) => {
+            pdfFile = e.target.files[0];
+            if (pdfFile) {
+                document.getElementById('uploadStatus').innerText = "File: " + pdfFile.name;
+                document.getElementById('processBtn').disabled = false;
+            }
+        };
+
+        async function convertToExcel() {
+            const loader = document.getElementById('loader');
+            const processBtn = document.getElementById('processBtn');
+            const out = document.getElementById('outputArea');
+            
+            loader.style.display = 'block';
+            processBtn.disabled = true;
+            out.innerHTML = "";
+
+            try {
+                const arrayBuffer = await pdfFile.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+                document.getElementById('totalPage').innerText = pdf.numPages;
+
+                let excelData = [];
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    document.getElementById('currentPage').innerText = i;
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    
+                    // Logic: Grouping text items by Y-coordinate to detect rows
+                    let rows = {};
+                    textContent.items.forEach(item => {
+                        let y = Math.round(item.transform[5]); // Y coordinate
+                        if (!rows[y]) rows[y] = [];
+                        rows[y].push({ x: item.transform[4], text: item.str });
+                    });
+
+                    // Sort rows by Y coordinate (Top to Bottom)
+                    let sortedY = Object.keys(rows).sort((a, b) => b - a);
+
+                    sortedY.forEach(y => {
+                        // Sort items in a row by X coordinate (Left to Right)
+                        let rowItems = rows[y].sort((a, b) => a.x - b.x);
+                        let rowData = rowItems.map(item => item.text);
+                        excelData.push(rowData);
+                    });
+                    
+                    // Add empty row between pages
+                    excelData.push([]);
+                }
+
+                // Create Workbook using XLSX.js
+                const ws = XLSX.utils.aoa_to_sheet(excelData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "PDF_Data");
+
+                // Generate File
+                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([wbout], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+
+                out.innerHTML = `
+                    <div style="margin-top:20px; padding:15px; background:#e8f5e9; border-radius:10px; border:1px solid #28a745; text-align:center;">
+                        <p style="color:#28a745; font-weight:bold;">Excel Conversion Successful!</p>
+                        <a href="${url}" download="converted_data.xlsx" class="btn-process btn-success" style="text-decoration:none; display:block; margin-top:10px;">Download Excel (.xlsx)</a>
+                    </div>
+                `;
+            } catch (err) {
+                alert("Error: " + err.message);
+            } finally {
+                loader.style.display = 'none';
+                processBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

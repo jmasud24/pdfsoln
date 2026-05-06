@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML to PDF - Convert HTML Code or Files to PDF | One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    
+    <!-- HTML to PDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        .input-methods {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            justify-content: center;
+        }
+
+        .method-btn {
+            padding: 10px 20px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+
+        .method-btn.active {
+            background: var(--primary-red);
+            color: #c7c7c7;
+            border-color: var(--primary-red);
+        }
+
+        .editor-container {
+            text-align: left;
+            margin-top: 20px;
+        }
+
+        #htmlCode {
+            width: 100%;
+            height: 250px;
+            padding: 15px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            resize: vertical;
+            outline: none;
+        }
+
+        .hidden { display: none; }
+
+
+
+        .loader {
+            display: none;
+            margin: 20px 0;
+            font-weight: bold;
+            color: var(--primary-red);
+            text-align: center;
+        }
+
+        footer {
+            background: #0f172a;
+            color: #fff;
+            padding: 60px 20px 30px;
+            text-align: left;
+            margin-top: 80px;
+        }
+        .footer-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 40px;
+        }
+        .footer-col h4 { color: var(--primary-red); margin-bottom: 20px; }
+        .footer-col ul { list-style: none; }
+        .footer-col li { margin-bottom: 10px; }
+        .footer-col a { color: #94a3b8; text-decoration: none; font-size: 14px; }
+        .footer-bottom { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #1e293b; color: #64748b; font-size: 13px; }
+    </style>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper" style="max-width: 728px;">
+        <div class="tool-box">
+            <h1>HTML to PDF</h1>
+            <p>Convert your HTML documents or raw code into a professional PDF file securely.</p>
+
+            <div class="input-methods">
+                <button class="method-btn active" id="btnUpload" onclick="switchMethod('upload')">Upload .html File</button>
+                <button class="method-btn" id="btnPaste" onclick="switchMethod('paste')">Paste HTML Code</button>
+            </div>
+
+            <div id="uploadSection">
+                <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                    <p id="uploadStatus">Click or Drag .html file here</p>
+                    <input type="file" id="fileInput" hidden accept=".html">
+                </div>
+            </div>
+
+            <div id="pasteSection" class="hidden">
+                <div class="editor-container">
+                    <textarea id="htmlCode" placeholder="Paste your <html> code here..."></textarea>
+                </div>
+            </div>
+
+            <div id="loader" class="loader">Generating PDF, please wait...</div>
+
+            <button id="processBtn" class="btn-process" onclick="convertToPdf()">Convert to PDF</button>
+            
+            <div id="outputArea"></div>
+
+
+        </div>
+    </div>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="../components/components.js"></script>
+    <script>
+        
+        
+
+        let currentMethod = 'upload';
+        let uploadedHtml = "";
+
+        function switchMethod(method) {
+            currentMethod = method;
+            document.getElementById('btnUpload').classList.toggle('active', method === 'upload');
+            document.getElementById('btnPaste').classList.toggle('active', method === 'paste');
+            document.getElementById('uploadSection').classList.toggle('hidden', method !== 'upload');
+            document.getElementById('pasteSection').classList.toggle('hidden', method !== 'paste');
+            document.getElementById('outputArea').innerHTML = "";
+        }
+
+        document.getElementById('fileInput').onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('uploadStatus').innerText = "Selected: " + file.name;
+                const reader = new FileReader();
+                reader.onload = (ev) => { uploadedHtml = ev.target.result; };
+                reader.readAsText(file);
+            }
+        };
+
+        async function convertToPdf() {
+            const loader = document.getElementById('loader');
+            const out = document.getElementById('outputArea');
+            let finalHtml = "";
+
+            if (currentMethod === 'upload') {
+                if (!uploadedHtml) { alert("Please upload an HTML file first."); return; }
+                finalHtml = uploadedHtml;
+            } else {
+                finalHtml = document.getElementById('htmlCode').value;
+                if (!finalHtml.trim()) { alert("Please paste HTML code."); return; }
+            }
+
+            loader.style.display = 'block';
+            out.innerHTML = "";
+            
+            const opt = {
+                margin: 0.5,
+                filename: 'document.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+
+            try {
+                const pdfBlob = await html2pdf().set(opt).from(finalHtml).outputPdf('blob');
+                const url = URL.createObjectURL(pdfBlob);
+
+                out.innerHTML = `
+                    <div style="margin-top:20px; padding:20px; background:#e8f5e9; border-radius:10px; border:1px solid #28a745; text-align:center;">
+                        <p style="color:#28a745; font-weight:bold;">PDF Generated Successfully!</p>
+                        <a href="${url}" download="html_to_pdf.pdf" class="btn-process btn-success" style="text-decoration:none; display:block; margin-top:10px;">Download PDF</a>
+                    </div>
+                `;
+            } catch (err) {
+                alert("Error generating PDF. Make sure your HTML is valid.");
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

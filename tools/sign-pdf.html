@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign PDF - Draw and Add Digital Signature to PDF | One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+    <style>
+        .sign-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        /* সিগনেচার প্যাড স্টাইল */
+        .signature-pad-wrapper {
+            background: #fff;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        .pad-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .canvas-outer-wrapper {
+            border: 2px solid #333;
+            background: #e0e0e0;
+            max-width: 100%;
+            overflow: auto;
+            margin: 20px auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .instruction {
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            margin-bottom: 15px;
+            border: 1px solid #ffeeba;
+        }
+
+        #loader {
+            display: none;
+            text-align: center;
+            font-weight: bold;
+            color: var(--primary-red);
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper" style="max-width: 728px;">
+        <div class="tool-box">
+            <h1>Sign PDF</h1>
+            <p>Draw your signature and place it anywhere on your document.</p>
+
+            <!-- PDF Upload -->
+            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <p id="uploadStatus">Click to upload PDF to Sign</p>
+                <input type="file" id="fileInput" hidden accept=".pdf">
+            </div>
+
+            <div id="loader">Loading PDF Preview...</div>
+
+            <div class="sign-container" id="signContainer">
+                <!-- Signature Pad -->
+                <div class="signature-pad-wrapper">
+                    <p style="font-weight: bold; margin-bottom: 5px;">Draw Your Signature Below:</p>
+                    <canvas id="signature-pad" width="300" height="150" style="border:1px solid #ccc; background:#fafafa; cursor: crosshair;"></canvas>
+                    <div class="pad-actions">
+                        <button class="edit-btn" onclick="clearPad()">Clear Pad</button>
+                        <button class="btn-process" style="width: auto; padding: 8px 20px;" onclick="addSignatureToPdf()">Add to PDF</button>
+                    </div>
+                </div>
+
+                <div class="instruction">
+                    Step 2: Drag the signature to the correct position on the PDF below.
+                </div>
+
+                <!-- PDF Preview/Editor -->
+                <div class="canvas-outer-wrapper">
+                    <canvas id="pdf-canvas"></canvas>
+                </div>
+
+                <button id="processBtn" class="btn-process" onclick="saveSignedPdf()">Save & Download Signed PDF</button>
+            </div>
+            
+            <div id="outputArea"></div>
+        </div>
+    </div>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="../components/components.js"></script>
+    <script>
+        // Load Components
+        
+        
+
+        // Libraries Setup
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        
+        let pdfDoc = null;
+        let pdfBytes = null;
+        let fabricCanvas = new fabric.Canvas('pdf-canvas');
+        let sigPad = new fabric.Canvas('signature-pad', { isDrawingMode: true });
+        
+        sigPad.freeDrawingBrush.width = 3;
+        sigPad.freeDrawingBrush.color = "#000";
+
+        const fileInput = document.getElementById('fileInput');
+
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('loader').style.display = 'block';
+                pdfBytes = await file.arrayBuffer();
+                const loadingTask = pdfjsLib.getDocument({data: pdfBytes});
+                pdfDoc = await loadingTask.promise;
+                
+                document.getElementById('signContainer').style.display = 'flex';
+                document.getElementById('uploadStatus').innerText = "File: " + file.name;
+                
+                renderPdfPage(1);
+            }
+        };
+
+        async function renderPdfPage(num) {
+            const page = await pdfDoc.getPage(num);
+            const viewport = page.getViewport({scale: 1.5});
+            
+            const tempCanvas = document.createElement('canvas');
+            const context = tempCanvas.getContext('2d');
+            tempCanvas.height = viewport.height;
+            tempCanvas.width = viewport.width;
+            
+            await page.render({canvasContext: context, viewport: viewport}).promise;
+
+            fabricCanvas.clear();
+            fabricCanvas.setHeight(viewport.height);
+            fabricCanvas.setWidth(viewport.width);
+            
+            fabric.Image.fromURL(tempCanvas.toDataURL(), (img) => {
+                fabricCanvas.setBackgroundImage(img, fabricCanvas.renderAll.bind(fabricCanvas));
+                document.getElementById('loader').style.display = 'none';
+            });
+        }
+
+        function clearPad() {
+            sigPad.clear();
+            sigPad.backgroundColor = "#fafafa";
+            sigPad.renderAll();
+        }
+
+        function addSignatureToPdf() {
+            if (sigPad.getObjects().length === 0) {
+                alert("Please draw your signature first.");
+                return;
+            }
+
+            // Convert signature pad to Image
+            const sigDataURL = sigPad.toDataURL({
+                format: 'png',
+                multiplier: 1,
+                enableRetinaScaling: true
+            });
+
+            fabric.Image.fromURL(sigDataURL, (img) => {
+                img.scale(0.5); // Initial scaling
+                img.set({
+                    left: 100,
+                    top: 100,
+                    cornerColor: 'blue',
+                    cornerSize: 10,
+                    transparentCorners: false
+                });
+                fabricCanvas.add(img);
+                fabricCanvas.setActiveObject(img);
+            });
+        }
+
+        async function saveSignedPdf() {
+            const btn = document.getElementById('processBtn');
+            btn.innerText = "Processing...";
+            btn.disabled = true;
+
+            try {
+                const { PDFDocument } = PDFLib;
+                const libPdfDoc = await PDFDocument.load(pdfBytes);
+                const page = libPdfDoc.getPages()[0]; // First page
+                const { width, height } = page.getSize();
+
+                // Get only the signature objects (not the background)
+                // We create a temp static canvas to export just the overlay
+                const tempCanvas = document.createElement('canvas');
+                const staticCanvas = new fabric.StaticCanvas(tempCanvas);
+                staticCanvas.setWidth(fabricCanvas.width);
+                staticCanvas.setHeight(fabricCanvas.height);
+
+                // Copy objects from main canvas to static canvas
+                fabricCanvas.getObjects().forEach(obj => {
+                    if (obj !== fabricCanvas.backgroundImage) {
+                        const clone = fabric.util.object.clone(obj);
+                        staticCanvas.add(clone);
+                    }
+                });
+
+                const overlayData = staticCanvas.toDataURL({ format: 'png' });
+                const signatureImage = await libPdfDoc.embedPng(overlayData);
+
+                page.drawImage(signatureImage, {
+                    x: 0,
+                    y: 0,
+                    width: width,
+                    height: height,
+                });
+
+                const signedBytes = await libPdfDoc.save();
+                const url = URL.createObjectURL(new Blob([signedBytes], { type: 'application/pdf' }));
+                
+                document.getElementById('outputArea').innerHTML = `
+                    <div style="margin-top:20px; padding:15px; background:#e8f5e9; border-radius:10px; border:1px solid #28a745; text-align:center;">
+                        <p style="color:#28a745; font-weight:bold;">PDF Signed Successfully!</p>
+                        <a href="${url}" download="signed_document.pdf" class="btn-process btn-success" style="text-decoration:none; display:block; margin-top:10px;">Download Signed PDF</a>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+                alert("Error signing PDF.");
+            }
+            btn.innerText = "Save & Download Signed PDF";
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>

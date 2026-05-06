@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Word - Convert PDF to Editable Doc Online | One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    <!-- PDF.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <!-- Top Ad Section -->
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper">
+        <div class="tool-box">
+            <h1>PDF to Word</h1>
+            <p>Extract text from PDF and convert it into an editable Word document.</p>
+
+            <!-- File Upload -->
+            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <p id="uploadStatus">Click or Drag PDF to Convert</p>
+                <input type="file" id="fileInput" hidden accept=".pdf">
+            </div>
+
+            <div id="statusBox" class="status-box">
+                Processing: <span id="progressText">0%</span>
+            </div>
+
+            <button id="processBtn" class="btn-process" disabled>Convert to Word</button>
+            
+            <div id="outputArea"></div>
+        </div>
+    </div>
+
+    <!-- Bottom Ad Section -->
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+
+
+<script src="../components/components.js"></script>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        
+        let selectedFile = null;
+        const processBtn = document.getElementById('processBtn');
+        const statusBox = document.getElementById('statusBox');
+        const progressText = document.getElementById('progressText');
+
+        document.getElementById('fileInput').onchange = (e) => {
+            selectedFile = e.target.files[0];
+            if(selectedFile) {
+                document.getElementById('uploadStatus').innerText = "Selected: " + selectedFile.name;
+                processBtn.disabled = false;
+            }
+        };
+
+        processBtn.onclick = async () => {
+            processBtn.disabled = true;
+            statusBox.style.display = 'block';
+            
+            try {
+                const arrayBuffer = await selectedFile.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+                let fullText = "";
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    fullText += pageText + "\n\n";
+                    
+                    // Update progress
+                    let percent = Math.round((i / pdf.numPages) * 100);
+                    progressText.innerText = percent + "%";
+                }
+
+                // Create Word-compatible HTML Blob
+                // This format allows Word to open the file with formatting preserved as text
+                const htmlContent = `
+                    <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                    <head><meta charset='utf-8'></head>
+                    <body>${fullText.replace(/\n/g, '<br>')}</body>
+                    </html>
+                `;
+
+                const blob = new Blob(['\ufeff', htmlContent], {
+                    type: 'application/msword'
+                });
+
+                const url = URL.createObjectURL(blob);
+                document.getElementById('outputArea').innerHTML = `
+                    <div style="margin-top:20px;">
+                        <a href="${url}" download="${selectedFile.name.replace('.pdf', '')}.doc" class="btn-process btn-success" style="text-decoration:none; display:block;">Download Word Document</a>
+                    </div>
+                `;
+
+            } catch (err) {
+                console.error(err);
+                alert("Error extracting text from PDF.");
+            } finally {
+                statusBox.style.display = 'none';
+                processBtn.disabled = false;
+            }
+        };
+
+        // Drag and Drop
+        const dropZone = document.getElementById('dropZone');
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('dragover'); };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if(file && file.type === "application/pdf") {
+                selectedFile = file;
+                document.getElementById('uploadStatus').innerText = "Selected: " + file.name;
+                processBtn.disabled = false;
+            }
+        };
+    </script>
+</body>
+</html>

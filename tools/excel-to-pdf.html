@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel to PDF - Convert Excel Spreadsheets to PDF Online | One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    <style>
+        .loader {
+            display: none;
+            margin: 20px 0;
+            font-weight: bold;
+            color: var(--primary-red);
+            text-align: center;
+        }
+        .file-info {
+            background: #f1f3f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            text-align: left;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper" style="max-width: 800px;">
+        <div class="tool-box">
+            <h1>Excel to PDF</h1>
+            <p>Convert your Excel spreadsheets (.xlsx, .xls) into professional PDF documents instantly.</p>
+
+            <!-- File Upload Area -->
+            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <p id="uploadStatus">Click or Drag Excel file here</p>
+                <input type="file" id="fileInput" hidden accept=".xlsx, .xls">
+            </div>
+
+            <!-- File Details -->
+            <div id="fileInfo" class="file-info">
+                <strong>File Name:</strong> <span id="infoName"></span><br>
+                <strong>Format:</strong> <span id="infoFormat"></span>
+            </div>
+
+            <div id="loader" class="loader">Converting Excel to PDF, please wait...</div>
+
+            <button id="processBtn" class="btn-process" disabled onclick="convertToPdf()">Convert to PDF</button>
+            
+            <div id="outputArea"></div>
+        </div>
+    </div>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+    <!-- Script to Load Header and Footer Components -->
+    <script src="../components/components.js"></script>
+
+    <!-- Excel to PDF Logic -->
+    <script>
+        let selectedFile = null;
+        const fileInput = document.getElementById('fileInput');
+        const processBtn = document.getElementById('processBtn');
+        const uploadStatus = document.getElementById('uploadStatus');
+
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                selectedFile = file;
+                uploadStatus.innerText = "File Selected";
+                showFileInfo(file);
+                processBtn.disabled = false;
+            }
+        };
+
+        function showFileInfo(file) {
+            const infoBox = document.getElementById('fileInfo');
+            infoBox.style.display = 'block';
+            document.getElementById('infoName').innerText = file.name;
+            document.getElementById('infoFormat').innerText = file.name.split('.').pop().toUpperCase();
+        }
+
+        async function convertToPdf() {
+            const loader = document.getElementById('loader');
+            const outputArea = document.getElementById('outputArea');
+            
+            processBtn.disabled = true;
+            loader.style.display = 'block';
+            outputArea.innerHTML = '';
+
+            try {
+                const data = await selectedFile.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                // Initialize jsPDF
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('l', 'pt', 'a4'); // 'l' for landscape to fit more columns
+
+                // Iterate through each sheet in the Excel file
+                workbook.SheetNames.forEach((sheetName, index) => {
+                    if (index > 0) doc.addPage();
+                    
+                    const worksheet = workbook.Sheets[sheetName];
+                    // Convert sheet to JSON (Array of Arrays)
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    if (jsonData.length > 0) {
+                        doc.text(`Sheet: ${sheetName}`, 40, 30);
+                        
+                        // Use autoTable to draw the Excel data
+                        doc.autoTable({
+                            head: [jsonData[0]], // First row as header
+                            body: jsonData.slice(1), // Rest as body
+                            startY: 40,
+                            styles: { fontSize: 8, cellPadding: 3 },
+                            headStyles: { fillStyle: 'dark', fillColor: [229, 50, 45] }, // Primary Red theme
+                            margin: { top: 50 },
+                            theme: 'grid'
+                        });
+                    }
+                });
+
+                const pdfBlob = doc.output('blob');
+                const url = URL.createObjectURL(pdfBlob);
+
+                outputArea.innerHTML = `
+                    <div style="margin-top:20px; padding:20px; background:#e8f5e9; border-radius:10px; border:1px solid #28a745; text-align:center;">
+                        <p style="color:#28a745; font-weight:bold;">Successfully Converted!</p>
+                        <a href="${url}" download="${selectedFile.name.replace(/\.[^/.]+$/, "")}.pdf" class="btn-process btn-success" style="text-decoration:none; display:block; margin-top:10px;">Download PDF File</a>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+                alert("Error: Could not process Excel file. Please ensure it is a valid .xlsx or .xls file.");
+            } finally {
+                loader.style.display = 'none';
+                processBtn.disabled = false;
+            }
+        }
+
+        // Drag and Drop Support
+        const dropZone = document.getElementById('dropZone');
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('dragover'); };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+                selectedFile = file;
+                uploadStatus.innerText = "File Selected";
+                showFileInfo(file);
+                processBtn.disabled = false;
+            } else {
+                alert("Please drop a valid Excel file (.xlsx or .xls).");
+            }
+        };
+    </script>
+</body>
+</html>

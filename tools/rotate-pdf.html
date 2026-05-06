@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rotate PDF - Rotate Individual Pages Online | One Page Tools</title>
+    <link rel="stylesheet" href="../style.css">
+    
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+    <style>
+        .instruction-text {
+            display: none;
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            border: 1px solid #ffeeba;
+        }
+
+        /* প্রিভিউ গ্রিড */
+        .preview-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 25px;
+            margin-top: 20px;
+            max-height: 65vh;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f1f1f1;
+            border-radius: 12px;
+            display: none;
+            border: 2px inset #ddd;
+        }
+
+        .page-card {
+            background: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .page-card:hover {
+            border-color: var(--primary-red);
+            transform: translateY(-5px);
+        }
+
+        /* রোটেট আইকন ওভারলে */
+        .rotate-icon-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(229, 50, 45, 0.8);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            opacity: 0;
+            transition: 0.3s;
+            z-index: 10;
+        }
+
+        .page-card:hover .rotate-icon-overlay {
+            opacity: 1;
+        }
+
+        .page-card canvas {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: block;
+            margin: 0 auto;
+        }
+
+        .page-label {
+            margin-top: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #444;
+        }
+
+        #loader {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            font-weight: bold;
+            color: var(--primary-red);
+        }
+
+        .global-controls {
+            display: none;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 600px) {
+            .preview-container { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <div class="ad-container">Advertisement Placeholder (728x90)</div>
+
+    <div class="tool-wrapper" style="max-width: 728px;">
+        <div class="tool-box">
+            <h1>Rotate PDF Pages</h1>
+            <p>Rotate specific pages or the entire document. Simply click on a page to rotate it 90° clockwise.</p>
+
+            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <p id="uploadStatus">Click to upload PDF</p>
+                <input type="file" id="fileInput" hidden accept=".pdf">
+            </div>
+
+            <div class="instruction-text" id="instruction">
+                💡 <strong>Tip:</strong> Click on any page preview below to rotate that specific page.
+            </div>
+
+            <div class="global-controls" id="globalControls">
+                <button class="edit-btn" onclick="rotateAll(90)">Rotate All +90°</button>
+                <button class="edit-btn" onclick="resetAll()">Reset All</button>
+            </div>
+
+            <div id="loader">Generating High-Quality Previews...</div>
+
+            <div class="preview-container" id="previewContainer"></div>
+
+            <button id="processBtn" class="btn-process" style="margin-top: 25px;" disabled onclick="saveRotatedPdf()">Save & Download PDF</button>
+            
+            <div id="outputArea"></div>
+        </div>
+    </div>
+
+    <div class="ad-container">Advertisement Placeholder (728x90)</div>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="../components/components.js"></script>
+    <script>
+        // Load Header & Footer
+        
+        
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        
+        let pdfDoc = null;
+        let pdfBytes = null;
+        let pageRotations = {}; // প্রতিটি পেজের রোটেশন ট্র্যাক করার জন্য অবজেক্ট
+        const fileInput = document.getElementById('fileInput');
+
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('loader').style.display = 'block';
+                pdfBytes = await file.arrayBuffer();
+                const loadingTask = pdfjsLib.getDocument({data: pdfBytes});
+                pdfDoc = await loadingTask.promise;
+                
+                document.getElementById('previewContainer').style.display = 'grid';
+                document.getElementById('globalControls').style.display = 'flex';
+                document.getElementById('instruction').style.display = 'block';
+                document.getElementById('uploadStatus').innerText = "File: " + file.name;
+                document.getElementById('processBtn').disabled = false;
+                
+                renderPreviews();
+            }
+        };
+
+        async function renderPreviews() {
+            const container = document.getElementById('previewContainer');
+            container.innerHTML = ""; 
+            pageRotations = {}; // রিসেট
+
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                pageRotations[i] = 0; // শুরুতে সব ০ ডিগ্রি
+
+                const page = await pdfDoc.getPage(i);
+                const viewport = page.getViewport({scale: 0.5});
+                
+                const card = document.createElement('div');
+                card.className = 'page-card';
+                card.setAttribute('data-page-index', i);
+                
+                // রোটেট আইকন ওভারলে
+                const overlay = document.createElement('div');
+                overlay.className = 'rotate-icon-overlay';
+                overlay.innerHTML = '🔄';
+                
+                const canvas = document.createElement('canvas');
+                canvas.id = `canvas-p-${i}`;
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                
+                const label = document.createElement('div');
+                label.className = 'page-label';
+                label.innerText = `Page ${i}`;
+                
+                card.appendChild(overlay);
+                card.appendChild(canvas);
+                card.appendChild(label);
+                
+                // ক্লিক ইভেন্ট: শুধু ঐ পেজ ঘুরবে
+                card.onclick = function() {
+                    const idx = this.getAttribute('data-page-index');
+                    rotateSinglePage(idx);
+                };
+
+                container.appendChild(card);
+                await page.render({canvasContext: context, viewport: viewport}).promise;
+            }
+            document.getElementById('loader').style.display = 'none';
+        }
+
+        function rotateSinglePage(idx) {
+            pageRotations[idx] = (pageRotations[idx] + 90) % 360;
+            const canvas = document.getElementById(`canvas-p-${idx}`);
+            canvas.style.transform = `rotate(${pageRotations[idx]}deg)`;
+        }
+
+        function rotateAll(deg) {
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                rotateSinglePage(i);
+            }
+        }
+
+        function resetAll() {
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+                pageRotations[i] = 0;
+                const canvas = document.getElementById(`canvas-p-${i}`);
+                canvas.style.transform = `rotate(0deg)`;
+            }
+        }
+
+        async function saveRotatedPdf() {
+            const btn = document.getElementById('processBtn');
+            btn.innerText = "Applying Rotations...";
+            btn.disabled = true;
+
+            try {
+                const { PDFDocument, degrees } = PDFLib;
+                const libPdfDoc = await PDFDocument.load(pdfBytes);
+                const pages = libPdfDoc.getPages();
+
+                pages.forEach((page, index) => {
+                    const pageNum = index + 1;
+                    const rotationToAdd = pageRotations[pageNum];
+                    
+                    if (rotationToAdd !== 0) {
+                        const existingRotation = page.getRotation().angle;
+                        page.setRotation(degrees(existingRotation + rotationToAdd));
+                    }
+                });
+
+                const resultBytes = await libPdfDoc.save();
+                const url = URL.createObjectURL(new Blob([resultBytes], { type: 'application/pdf' }));
+                
+                document.getElementById('outputArea').innerHTML = `
+                    <div style="margin-top:20px; padding:15px; background:#e8f5e9; border-radius:10px; border:1px solid #28a745; text-align:center;">
+                        <p style="color:#28a745; font-weight:bold;">PDF Successfully Processed!</p>
+                        <a href="${url}" download="rotated_document.pdf" class="btn-process btn-success" style="text-decoration:none; display:block; margin-top:10px;">Download Now</a>
+                    </div>
+                `;
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
+            btn.innerText = "Save & Download PDF";
+            btn.disabled = false;
+        }
+    </script>
+</body>
+</html>

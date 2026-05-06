@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Edit PDF - Add Text, Shapes & Draw | One Page Tools</title>
+    <link rel="stylesheet" href="../style.css">
+    
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+    <style>
+        .edit-controls {
+            display: none;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .edit-btn {
+            padding: 8px 15px;
+            border: 1px solid #ccc;
+            background: #fff;
+            cursor: pointer;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .edit-btn:hover, .edit-btn.active {
+            background: var(--primary-red);
+            color: #fff;
+            border-color: var(--primary-red);
+        }
+
+        /* প্রিভিউ বক্সের স্টাইল */
+        .canvas-outer-wrapper {
+            margin: 20px auto;
+            border: 2px solid #333;
+            background: #ccc;
+            max-width: 100%;
+            height: 70vh; /* স্ক্রিন সাইজ অনুযায়ী */
+            overflow: hidden; /* আমরা ইন্টারনাল জুম ব্যবহার করব */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            position: relative;
+        }
+
+        .pagination {
+            display: none;
+            margin: 15px 0;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #loader {
+            display: none;
+            padding: 20px;
+            font-weight: bold;
+            color: var(--primary-red);
+            text-align: center;
+            background: #fff;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .color-group { display: flex; align-items: center; gap: 5px; }
+
+        @media (max-width: 600px) {
+            .edit-controls { padding: 10px; gap: 5px; }
+            .edit-btn { font-size: 12px; padding: 6px 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <div class="ad-container">Advertisement Placeholder (728x90)</div>
+
+    <div class="tool-wrapper" style="max-width: 1000px;">
+        <div class="tool-box">
+            <h1>Edit PDF Document</h1>
+            <p>Add text, draw, or shapes. Use two fingers to zoom and move the page on mobile.</p>
+
+            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <p id="uploadStatus">Click to upload PDF to Edit</p>
+                <input type="file" id="fileInput" hidden accept=".pdf">
+            </div>
+
+            <div class="edit-controls" id="editorToolbar">
+                <button class="edit-btn" onclick="addText()">Text</button>
+                <button class="edit-btn" onclick="addRect()">Rect</button>
+                <button class="edit-btn" id="drawBtn" onclick="toggleDraw()">Draw</button>
+                
+                <div class="color-group">
+                    <input type="color" id="colorPicker" value="#e5322d" style="width:40px; height:35px; border:none; cursor:pointer;">
+                </div>
+
+                <button class="edit-btn" onclick="deleteSelected()" style="color:red;">Delete</button>
+                <button class="edit-btn" onclick="clearPage()" style="color:red;">Clear</button>
+                
+                <button class="edit-btn" onclick="resetView()">Reset View</button>
+            </div>
+
+            <div id="loader">Processing Page Preview...</div>
+
+            <!-- এডিটিং ক্যানভাস এরিয়া -->
+            <div class="canvas-outer-wrapper">
+                <canvas id="pdf-canvas"></canvas>
+            </div>
+
+            <div class="pagination" id="pagination">
+                <button class="edit-btn" onclick="changePage(-1)">Previous</button>
+                <span>Page: <span id="pageNum">1</span> / <span id="pageCount">0</span></span>
+                <button class="edit-btn" onclick="changePage(1)">Next</button>
+            </div>
+
+            <button id="processBtn" class="btn-process" style="margin-top: 25px;" disabled onclick="savePdf()">Save & Download PDF</button>
+            
+            <div id="outputArea"></div>
+        </div>
+    </div>
+
+    <div class="ad-container">Advertisement Placeholder (728x90)</div>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="../components/components.js"></script>
+    <script>
+        // Components Loader
+        
+        
+
+        // PDF.js worker setup
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        
+        let pdfDoc = null;
+        let fabricCanvas = new fabric.Canvas('pdf-canvas', {
+            selection: true,
+            allowTouchScrolling: true
+        });
+
+        let currentNum = 1;
+        let pdfBytes = null;
+        let pageModifications = {}; 
+
+        const fileInput = document.getElementById('fileInput');
+        const processBtn = document.getElementById('processBtn');
+        const colorPicker = document.getElementById('colorPicker');
+
+        // --- ফাইল লোড ---
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                document.getElementById('loader').style.display = 'block';
+                pdfBytes = await file.arrayBuffer();
+                const loadingTask = pdfjsLib.getDocument({data: pdfBytes});
+                pdfDoc = await loadingTask.promise;
+                
+                document.getElementById('pageCount').innerText = pdfDoc.numPages;
+                document.getElementById('editorToolbar').style.display = 'flex';
+                document.getElementById('pagination').style.display = 'flex';
+                document.getElementById('uploadStatus').innerText = "Editing: " + file.name;
+                processBtn.disabled = false;
+                
+                renderPage(1);
+            }
+        };
+
+        // --- পেজ রেন্ডার (প্রিভিউ ফিক্সড) ---
+        async function renderPage(num) {
+            // সেভ বর্তমান পেজ ডাটা
+            pageModifications[currentNum] = fabricCanvas.toJSON();
+            currentNum = num;
+            document.getElementById('pageNum').innerText = num;
+            document.getElementById('loader').style.display = 'block';
+
+            const page = await pdfDoc.getPage(num);
+            const viewport = page.getViewport({scale: 1.5}); 
+            
+            const tempCanvas = document.createElement('canvas');
+            const context = tempCanvas.getContext('2d');
+            tempCanvas.height = viewport.height;
+            tempCanvas.width = viewport.width;
+            
+            await page.render({canvasContext: context, viewport: viewport}).promise;
+            const bgURL = tempCanvas.toDataURL('image/png');
+
+            // ক্যানভাস রিসেট ও সেটআপ
+            fabricCanvas.clear();
+            fabricCanvas.setHeight(viewport.height);
+            fabricCanvas.setWidth(viewport.width);
+            fabricCanvas.setZoom(1);
+            fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+
+            fabric.Image.fromURL(bgURL, (img) => {
+                fabricCanvas.setBackgroundImage(img, fabricCanvas.renderAll.bind(fabricCanvas), {
+                    originX: 'left', originY: 'top'
+                });
+
+                if (pageModifications[num]) {
+                    fabricCanvas.loadFromJSON(pageModifications[num], () => {
+                        fabricCanvas.renderAll();
+                        document.getElementById('loader').style.display = 'none';
+                    });
+                } else {
+                    document.getElementById('loader').style.display = 'none';
+                }
+            });
+        }
+
+        // --- জুম ও প্যান লজিক (মাউস হুইল ও টাচ) ---
+        fabricCanvas.on('mouse:wheel', function(opt) {
+            let delta = opt.e.deltaY;
+            let zoom = fabricCanvas.getZoom();
+            zoom *= 0.999 ** delta;
+            if (zoom > 5) zoom = 5;
+            if (zoom < 0.5) zoom = 0.5;
+            fabricCanvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+            opt.e.preventDefault();
+            opt.e.stopPropagation();
+        });
+
+        let isPanning = false;
+        fabricCanvas.on('mouse:down', function(opt) {
+            let evt = opt.e;
+            if (evt.altKey || (evt.touches && evt.touches.length === 2)) {
+                isPanning = true;
+                fabricCanvas.selection = false;
+                this.lastPosX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+                this.lastPosY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+            }
+        });
+
+        fabricCanvas.on('mouse:move', function(opt) {
+            if (isPanning) {
+                let e = opt.e;
+                let vpt = this.viewportTransform;
+                let posX = e.touches ? e.touches[0].clientX : e.clientX;
+                let posY = e.touches ? e.touches[0].clientY : e.clientY;
+                vpt[4] += posX - this.lastPosX;
+                vpt[5] += posY - this.lastPosY;
+                this.requestRenderAll();
+                this.lastPosX = posX;
+                this.lastPosY = posY;
+            }
+        });
+
+        fabricCanvas.on('mouse:up', function() {
+            isPanning = false;
+            fabricCanvas.selection = true;
+        });
+
+        function resetView() {
+            fabricCanvas.setZoom(1);
+            fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+        }
+
+        // --- এডিটিং টুলস ---
+        function addText() {
+            const t = new fabric.IText('Double Tap to Type', { 
+                left: 100, top: 100, fontSize: 24, fill: colorPicker.value, fontFamily: 'Arial' 
+            });
+            fabricCanvas.add(t);
+            fabricCanvas.setActiveObject(t);
+        }
+
+        function addRect() {
+            const r = new fabric.Rect({ 
+                left: 100, top: 100, fill: 'transparent', stroke: colorPicker.value, strokeWidth: 3, width: 100, height: 60 
+            });
+            fabricCanvas.add(r);
+            fabricCanvas.setActiveObject(r);
+        }
+
+        function toggleDraw() {
+            fabricCanvas.isDrawingMode = !fabricCanvas.isDrawingMode;
+            document.getElementById('drawBtn').classList.toggle('active');
+            fabricCanvas.freeDrawingBrush.width = 4;
+            fabricCanvas.freeDrawingBrush.color = colorPicker.value;
+        }
+
+        function deleteSelected() {
+            fabricCanvas.remove(...fabricCanvas.getActiveObjects());
+        }
+
+        function clearPage() {
+            fabricCanvas.getObjects().forEach(obj => {
+                if (obj !== fabricCanvas.backgroundImage) fabricCanvas.remove(obj);
+            });
+        }
+
+        function changePage(delta) {
+            const next = currentNum + delta;
+            if (next >= 1 && next <= pdfDoc.numPages) renderPage(next);
+        }
+
+        // --- সেভ ও ডাউনলোড লজিক ---
+        async function savePdf() {
+            const loader = document.getElementById('loader');
+            loader.innerText = "Saving your changes...";
+            loader.style.display = 'block';
+            processBtn.disabled = true;
+
+            pageModifications[currentNum] = fabricCanvas.toJSON();
+
+            try {
+                const { PDFDocument } = PDFLib;
+                const libPdfDoc = await PDFDocument.load(pdfBytes);
+                const offScreen = document.createElement('canvas');
+                const staticCanvas = new fabric.StaticCanvas(offScreen);
+
+                for (let pIdx in pageModifications) {
+                    const idx = parseInt(pIdx) - 1;
+                    const page = libPdfDoc.getPages()[idx];
+                    const { width, height } = page.getSize();
+
+                    // ক্যানভাস সাইজ অনুযায়ী প্রিভিউ রিসেট
+                    staticCanvas.setWidth(fabricCanvas.width);
+                    staticCanvas.setHeight(fabricCanvas.height);
+
+                    await new Promise(r => {
+                        staticCanvas.loadFromJSON(pageModifications[pIdx], () => {
+                            staticCanvas.backgroundImage = null; // শুধু এডিটগুলো নেবে
+                            staticCanvas.renderAll();
+                            r();
+                        });
+                    });
+
+                    const editsData = staticCanvas.toDataURL({ format: 'png' });
+                    const overlayImg = await libPdfDoc.embedPng(editsData);
+                    page.drawImage(overlayImg, { x: 0, y: 0, width: width, height: height });
+                }
+
+                const finalBytes = await libPdfDoc.save();
+                const url = URL.createObjectURL(new Blob([finalBytes], {type: 'application/pdf'}));
+                document.getElementById('outputArea').innerHTML = `
+                    <div style="margin-top:20px; padding:15px; background:#e8f5e9; border-radius:10px; border:1px solid #28a745; text-align:center;">
+                        <p style="color:#28a745; font-weight:bold; margin-bottom:10px;">Edited PDF Ready!</p>
+                        <a href="${url}" download="onepagetools_edited.pdf" class="btn-process btn-success" style="text-decoration:none; display:block;">Download Now</a>
+                    </div>
+                `;
+            } catch (err) { alert("Error: " + err.message); }
+            loader.style.display = 'none';
+            processBtn.disabled = false;
+        }
+    </script>
+</body>
+</html>

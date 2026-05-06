@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Watermark PDF - One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css" />
+    <!-- PDF-Lib Library -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  </head>
+  <body>
+    <header id="header-placeholder"></header>
+    <div class="ad-container">Advertisement Placeholder (728x90)</div>
+    <div class="tool-wrapper">
+      <div class="tool-box">
+        <h1>Watermark PDF</h1>
+        <p>Add text or image watermark to all pages of your PDF securely.</p>
+
+        <!-- PDF Upload Section -->
+        <div
+          class="upload-area"
+          id="dropZone"
+          onclick="document.getElementById('pdfInput').click()"
+        >
+          <p id="pdfStatus">Click or Drag PDF here</p>
+          <input type="file" id="pdfInput" hidden accept=".pdf" />
+        </div>
+
+        <!-- Selection Tabs -->
+        <div class="tab-container">
+          <button
+            class="tab-btn active"
+            id="btnText"
+            onclick="switchMode('text')"
+          >
+            Text Watermark
+          </button>
+          <button class="tab-btn" id="btnImage" onclick="switchMode('image')">
+            Image Watermark
+          </button>
+        </div>
+
+        <!-- Text Mode Options -->
+        <div id="textOptions" class="input-group">
+          <label>Watermark Text</label>
+          <input
+            type="text"
+            id="wmText"
+            class="input-field"
+            placeholder="Example: CONFIDENTIAL"
+          />
+        </div>
+
+        <!-- Image Mode Options -->
+        <div id="imageOptions" class="input-group hidden">
+          <label>Watermark Image (PNG or JPG)</label>
+          <div class="image-upload-wrapper">
+            <label for="wmImageInput" class="image-upload-label">
+              <span>Click to Select Image</span>
+            </label>
+            <input
+              type="file"
+              id="wmImageInput"
+              accept="image/png, image/jpeg"
+              style="display: none"
+            />
+          </div>
+          <center><img id="wmPreview" class="wmPreview-thumb" /></center>
+        </div>
+
+        <button id="processBtn" class="btn-process" disabled>
+          Apply Watermark
+        </button>
+
+        <div id="outputArea"></div>
+      </div>
+    </div>
+    <div class="ad-container">Advertisement Placeholder (728x90)</div>
+
+    <div id="footer-placeholder"></div>
+    <script src="../components/components.js"></script>
+
+    <script>
+      const { PDFDocument, rgb, degrees } = PDFLib;
+      let selectedPdfBytes = null;
+      let selectedImageBytes = null;
+      let currentMode = "text";
+
+      // Handling PDF Upload
+      document.getElementById("pdfInput").onchange = async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          selectedPdfBytes = await file.arrayBuffer();
+          document.getElementById("pdfStatus").innerText = "File: " + file.name;
+          validateForm();
+        }
+      };
+
+      // Handling Image Upload
+      document.getElementById("wmImageInput").onchange = async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          selectedImageBytes = await file.arrayBuffer();
+          const preview = document.getElementById("wmPreview");
+          preview.src = URL.createObjectURL(file);
+          preview.style.display = "block";
+          validateForm();
+        }
+      };
+
+      function switchMode(mode) {
+        currentMode = mode;
+        document
+          .getElementById("btnText")
+          .classList.toggle("active", mode === "text");
+        document
+          .getElementById("btnImage")
+          .classList.toggle("active", mode === "image");
+        document
+          .getElementById("textOptions")
+          .classList.toggle("hidden", mode !== "text");
+        document
+          .getElementById("imageOptions")
+          .classList.toggle("hidden", mode !== "image");
+        validateForm();
+      }
+
+      function validateForm() {
+        const hasPdf = selectedPdfBytes !== null;
+        const hasImage = currentMode === "image" && selectedImageBytes !== null;
+        const isTextMode = currentMode === "text";
+
+        document.getElementById("processBtn").disabled = !(
+          hasPdf &&
+          (isTextMode || hasImage)
+        );
+      }
+
+      document.getElementById("processBtn").onclick = async () => {
+        const btn = document.getElementById("processBtn");
+        btn.innerText = "Processing...";
+        btn.disabled = true;
+
+        try {
+          const pdfDoc = await PDFDocument.load(selectedPdfBytes);
+          const pages = pdfDoc.getPages();
+
+          if (currentMode === "text") {
+            // APPLY TEXT WATERMARK
+            const textContent =
+              document.getElementById("wmText").value || "DRAFT";
+            pages.forEach((page) => {
+              const { width, height } = page.getSize();
+              page.drawText(textContent, {
+                x: width / 4,
+                y: height / 2,
+                size: 55,
+                color: rgb(0.8, 0.8, 0.8),
+                rotate: degrees(45),
+                opacity: 0.3,
+              });
+            });
+          } else {
+            // APPLY IMAGE WATERMARK (10% OPACITY)
+            let wmImage;
+            try {
+              wmImage = await pdfDoc.embedPng(selectedImageBytes);
+            } catch (e) {
+              wmImage = await pdfDoc.embedJpg(selectedImageBytes);
+            }
+
+            pages.forEach((page) => {
+              const { width, height } = page.getSize();
+              const maxWidth = width * 0.4;
+              const maxHeight = height * 0.4;
+              const scale = Math.min(
+                maxWidth / wmImage.width,
+                maxHeight / wmImage.height,
+              );
+              const wmWidth = wmImage.width * scale;
+              const wmHeight = wmImage.height * scale;
+
+              page.drawImage(wmImage, {
+                x: (width - wmWidth) / 2,
+                y: (height - wmHeight) / 2,
+                width: wmWidth,
+                height: wmHeight,
+                opacity: 0.15, // Keep existing transparency
+              });
+            });
+          }
+
+          const pdfBytes = await pdfDoc.save();
+          const blob = new Blob([pdfBytes], { type: "application/pdf" });
+          const url = URL.createObjectURL(blob);
+
+          document.getElementById("outputArea").innerHTML = `
+                    <div style="margin-top:20px;">
+                        <a href="${url}" download="watermarked.pdf" class="btn-process btn-success" style="text-decoration:none;">Download Watermarked PDF</a>
+                    </div>
+                `;
+        } catch (err) {
+          console.error(err);
+          alert("Error: Unsupported file or image format.");
+        }
+
+        btn.innerText = "Apply Watermark";
+        btn.disabled = false;
+      };
+    </script>
+  </body>
+</html>

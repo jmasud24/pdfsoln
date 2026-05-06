@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organize PDF - Reorder and Delete Pages Online | One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    
+    <!-- PDF.js Library for Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    </script>
+    
+    <!-- PDF-Lib Library for Manipulation -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+    <style>
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin-top: 30px;
+            display: none; /* hidden until upload */
+        }
+
+        @media (max-width: 768px) {
+            .grid-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .page-card {
+            background: #fff;
+            border: 2px solid #eee;
+            border-radius: 10px;
+            padding: 10px;
+            position: relative;
+            cursor: grab;
+            transition: 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .page-card:hover {
+            border-color: var(--primary-red);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+
+        .page-card:active {
+            cursor: grabbing;
+        }
+
+        .page-card.dragging {
+            opacity: 0.5;
+            border-style: dashed;
+        }
+
+        .page-card.drag-over {
+            border-top: 4px solid var(--primary-red);
+        }
+
+        .page-canvas {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            pointer-events: none; /* Let the card handle drag */
+        }
+
+        .page-number {
+            font-size: 14px;
+            font-weight: bold;
+            color: #555;
+            pointer-events: none;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: var(--primary-red);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: 0.2s;
+            z-index: 10;
+        }
+
+        .delete-btn:hover {
+            transform: scale(1.1);
+            background: #c42824;
+        }
+
+        .controls-area {
+            display: none;
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        .loader {
+            display: none;
+            margin: 20px 0;
+            font-weight: bold;
+            color: var(--primary-red);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper" style="max-width: 728px;">
+        <div class="tool-box">
+            <h1>Organize PDF</h1>
+            <p>Reorder, delete, and organize PDF pages by simply dragging and dropping. Processed securely in your browser.</p>
+
+            <div id="uploadSection">
+                <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                    <p id="uploadStatus">Click or Drag a PDF file here</p>
+                    <input type="file" id="fileInput" hidden accept=".pdf">
+                </div>
+            </div>
+
+            <div id="loader" class="loader">Processing PDF, please wait...</div>
+
+            <!-- Grid for Pages -->
+            <div class="grid-container" id="pagesGrid"></div>
+
+            <div class="controls-area" id="controlsArea">
+                <button id="processBtn" class="btn-process" onclick="generatePdf()">Download Organized PDF</button>
+            </div>
+            
+            <div id="outputArea"></div>
+        </div>
+    </div>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="../components/components.js"></script>
+    <script>
+        let originalPdfBytes = null;
+        const fileInput = document.getElementById('fileInput');
+        const dropZone = document.getElementById('dropZone');
+        const pagesGrid = document.getElementById('pagesGrid');
+        const controlsArea = document.getElementById('controlsArea');
+        const loader = document.getElementById('loader');
+        const outputArea = document.getElementById('outputArea');
+
+        // Drag & Drop Upload
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('dragover'); };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        };
+        fileInput.onchange = (e) => handleFile(e.target.files[0]);
+
+        async function handleFile(file) {
+            if (!file || file.type !== "application/pdf") {
+                alert("Please upload a valid PDF file.");
+                return;
+            }
+            
+            document.getElementById('uploadStatus').innerText = "Selected: " + file.name;
+            document.getElementById('uploadSection').style.display = 'none';
+            loader.style.display = 'block';
+            pagesGrid.innerHTML = '';
+            pagesGrid.style.display = 'none';
+            controlsArea.style.display = 'none';
+            outputArea.innerHTML = '';
+
+            try {
+                originalPdfBytes = await file.arrayBuffer();
+                await renderPdfPages(originalPdfBytes);
+            } catch (error) {
+                console.error("Error loading PDF:", error);
+                alert("Failed to read the PDF. It might be corrupted or encrypted.");
+                document.getElementById('uploadSection').style.display = 'block';
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        async function renderPdfPages(pdfData) {
+            const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(pdfData) });
+            const pdf = await loadingTask.promise;
+            
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                // Use a smaller scale for thumbnails to ensure high performance
+                const scale = 0.4; 
+                const viewport = page.getViewport({ scale: scale });
+
+                const card = document.createElement('div');
+                card.className = 'page-card';
+                card.draggable = true;
+                // We use 0-indexed values for pdf-lib later, but display 1-indexed
+                card.dataset.pageIndex = i - 1; 
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.innerHTML = '✕';
+                deleteBtn.title = "Remove Page";
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    card.remove();
+                    updatePageLabels();
+                };
+
+                const canvas = document.createElement('canvas');
+                canvas.className = 'page-canvas';
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                const renderContext = {
+                    canvasContext: context,
+                    viewport: viewport
+                };
+                await page.render(renderContext).promise;
+
+                const pageLabel = document.createElement('span');
+                pageLabel.className = 'page-number';
+                pageLabel.innerText = `Page ${i}`;
+
+                card.appendChild(deleteBtn);
+                card.appendChild(canvas);
+                card.appendChild(pageLabel);
+
+                // Setup Drag Events
+                addDragEvents(card);
+
+                pagesGrid.appendChild(card);
+            }
+            
+            pagesGrid.style.display = 'grid';
+            controlsArea.style.display = 'block';
+        }
+
+        // Drag and Drop Logic for Reordering
+        let dragSrcEl = null;
+
+        function addDragEvents(item) {
+            item.addEventListener('dragstart', handleDragStart, false);
+            item.addEventListener('dragenter', handleDragEnter, false);
+            item.addEventListener('dragover', handleDragOver, false);
+            item.addEventListener('dragleave', handleDragLeave, false);
+            item.addEventListener('drop', handleDrop, false);
+            item.addEventListener('dragend', handleDragEnd, false);
+        }
+
+        function handleDragStart(e) {
+            dragSrcEl = this;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+            // Wait slightly so the drag image is rendered before adding the class
+            setTimeout(() => this.classList.add('dragging'), 0);
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault(); // Necessary. Allows us to drop.
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        function handleDragEnter(e) {
+            // this / e.target is the current hover target.
+            this.classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            this.classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation(); // Stops some browsers from redirecting.
+            }
+
+            // Don't do anything if dropping the same column we're dragging.
+            if (dragSrcEl !== this) {
+                // Swap the entire element position in the DOM
+                const allItems = [...pagesGrid.querySelectorAll('.page-card')];
+                const srcIndex = allItems.indexOf(dragSrcEl);
+                const targetIndex = allItems.indexOf(this);
+
+                if (srcIndex < targetIndex) {
+                    this.after(dragSrcEl);
+                } else {
+                    this.before(dragSrcEl);
+                }
+            }
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            const items = document.querySelectorAll('.page-card');
+            items.forEach(function (item) {
+                item.classList.remove('drag-over');
+            });
+            updatePageLabels();
+        }
+
+        function updatePageLabels() {
+            const items = document.querySelectorAll('.page-card');
+            items.forEach((item, index) => {
+                const label = item.querySelector('.page-number');
+                if (label) {
+                    label.innerText = `Page ${index + 1}`;
+                }
+            });
+        }
+
+        // PDF Generation
+        async function generatePdf() {
+            const processBtn = document.getElementById('processBtn');
+            processBtn.disabled = true;
+            loader.style.display = 'block';
+            outputArea.innerHTML = '';
+
+            try {
+                // Extract current order
+                const items = document.querySelectorAll('.page-card');
+                const pageIndices = Array.from(items).map(item => parseInt(item.dataset.pageIndex));
+
+                if (pageIndices.length === 0) {
+                    alert("No pages left to organize! Please reload and try again.");
+                    processBtn.disabled = false;
+                    loader.style.display = 'none';
+                    return;
+                }
+
+                // Load Original PDF
+                const { PDFDocument } = PDFLib;
+                const srcDoc = await PDFDocument.load(originalPdfBytes);
+                
+                // Create New PDF
+                const newDoc = await PDFDocument.create();
+
+                // Copy selected pages in the new order
+                const copiedPages = await newDoc.copyPages(srcDoc, pageIndices);
+                copiedPages.forEach((page) => newDoc.addPage(page));
+
+                // Save
+                const pdfBytes = await newDoc.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+
+                outputArea.innerHTML = `
+                    <div style="margin-top:20px; padding:20px; background:#e8f5e9; border-radius:10px; border:1px solid #28a745; text-align:center;">
+                        <p style="color:#28a745; font-weight:bold;">PDF Organized Successfully!</p>
+                        <a href="${url}" download="organized_document.pdf" class="btn-process btn-success" style="text-decoration:none; display:block; margin-top:10px;">Download PDF</a>
+                        <button onclick="location.reload()" class="btn-process" style="margin-top:10px; background:#6c757d; display:block; width:100%;">Start Over</button>
+                    </div>
+                `;
+            } catch (error) {
+                console.error("Error generating PDF:", error);
+                alert("An error occurred while generating the PDF.");
+            } finally {
+                loader.style.display = 'none';
+                processBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scan to PDF - Use Camera to Create PDF Online | One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    
+    <!-- PDF-Lib Library for Generation -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+
+    <style>
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto 20px;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        #cameraFeed {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .flash-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.1s;
+        }
+
+        .flash-overlay.active {
+            opacity: 1;
+        }
+
+        .camera-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn-capture {
+            background: var(--primary-red);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 5px 15px rgba(229, 50, 45, 0.4);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-capture:hover {
+            transform: translateY(-2px);
+            background: var(--primary-hover);
+        }
+
+        .btn-capture:active {
+            transform: scale(0.95);
+        }
+
+        .btn-switch {
+            background: #475569;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-switch:hover {
+            background: #334155;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .preview-card {
+            position: relative;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #fff;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .preview-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: var(--primary-red);
+            color: #fff;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            transition: 0.2s;
+        }
+
+        .delete-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .page-badge {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            background: rgba(0,0,0,0.6);
+            color: #fff;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .action-area {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            text-align: center;
+            display: none;
+        }
+
+        #loader {
+            display: none;
+            margin: 20px 0;
+            font-weight: bold;
+            color: var(--primary-red);
+            text-align: center;
+        }
+        
+        .error-message {
+            color: var(--primary-red);
+            background: #fee2e2;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper" style="max-width: 800px;">
+        <div class="tool-box">
+            <h1>Scan to PDF</h1>
+            <p>Use your device camera to scan documents and instantly compile them into a high-quality PDF. 100% private.</p>
+
+            <div id="errorMessage" class="error-message"></div>
+
+            <div class="camera-container">
+                <video id="cameraFeed" autoplay playsinline></video>
+                <div class="flash-overlay" id="flashOverlay"></div>
+            </div>
+
+            <div class="camera-controls">
+                <button class="btn-capture" id="captureBtn" onclick="capturePage()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+                    Capture Page
+                </button>
+                <button class="btn-switch" id="switchBtn" onclick="switchCamera()">
+                    🔄 Switch Camera
+                </button>
+            </div>
+
+            <!-- Hidden Canvas for capturing -->
+            <canvas id="captureCanvas" style="display: none;"></canvas>
+
+            <h3 style="margin-top: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px;">Scanned Pages</h3>
+            <div class="preview-grid" id="previewGrid">
+                <!-- Captured images will appear here -->
+                <p style="color: #999; grid-column: 1 / -1; text-align: center; padding: 20px 0;" id="emptyMsg">No pages scanned yet.</p>
+            </div>
+
+            <div class="action-area" id="actionArea">
+                <div id="loader" class="loader">Generating PDF, please wait...</div>
+                <button class="btn-process btn-success" onclick="generatePdf()" id="generateBtn" style="font-size: 18px; padding: 15px 40px; width: 100%; max-width: 400px;">Save as PDF</button>
+            </div>
+            
+            <div id="outputArea"></div>
+        </div>
+    </div>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="../components/components.js"></script>
+    <script>
+        const video = document.getElementById('cameraFeed');
+        const canvas = document.getElementById('captureCanvas');
+        const ctx = canvas.getContext('2d');
+        const flashOverlay = document.getElementById('flashOverlay');
+        const previewGrid = document.getElementById('previewGrid');
+        const emptyMsg = document.getElementById('emptyMsg');
+        const actionArea = document.getElementById('actionArea');
+        const errorMessage = document.getElementById('errorMessage');
+
+        let currentStream = null;
+        let useFrontCamera = false;
+        let capturedImages = []; // Array of DataURLs
+
+        // Initialize Camera
+        async function initCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: {
+                    facingMode: useFrontCamera ? "user" : "environment",
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                }
+            };
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                currentStream = stream;
+                video.srcObject = stream;
+                errorMessage.style.display = 'none';
+            } catch (err) {
+                console.error("Camera error:", err);
+                errorMessage.innerText = "Error accessing camera. Please ensure you have given permission in your browser settings.";
+                errorMessage.style.display = 'block';
+            }
+        }
+
+        function switchCamera() {
+            useFrontCamera = !useFrontCamera;
+            initCamera();
+        }
+
+        function capturePage() {
+            if (!currentStream) return;
+
+            // Flash effect
+            flashOverlay.classList.add('active');
+            setTimeout(() => {
+                flashOverlay.classList.remove('active');
+            }, 150);
+
+            // Set canvas to video actual dimensions
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Draw current frame
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Get DataURL (high quality JPEG)
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+            capturedImages.push(dataUrl);
+
+            updateUI();
+        }
+
+        function removeImage(index) {
+            capturedImages.splice(index, 1);
+            updateUI();
+        }
+
+        function updateUI() {
+            previewGrid.innerHTML = '';
+            
+            if (capturedImages.length === 0) {
+                previewGrid.appendChild(emptyMsg);
+                actionArea.style.display = 'none';
+                return;
+            }
+
+            actionArea.style.display = 'block';
+
+            capturedImages.forEach((imgSrc, index) => {
+                const card = document.createElement('div');
+                card.className = 'preview-card';
+                
+                card.innerHTML = `
+                    <img src="${imgSrc}" alt="Scanned Page ${index + 1}">
+                    <div class="page-badge">${index + 1}</div>
+                    <button class="delete-btn" onclick="removeImage(${index})">✕</button>
+                `;
+                previewGrid.appendChild(card);
+            });
+        }
+
+        // PDF Generation
+        async function generatePdf() {
+            const generateBtn = document.getElementById('generateBtn');
+            const loader = document.getElementById('loader');
+            const outputArea = document.getElementById('outputArea');
+
+            if (capturedImages.length === 0) return;
+
+            generateBtn.style.display = 'none';
+            loader.style.display = 'block';
+            outputArea.innerHTML = '';
+
+            try {
+                const { PDFDocument, PageSizes } = PDFLib;
+                const pdfDoc = await PDFDocument.create();
+
+                for (const imgSrc of capturedImages) {
+                    // Extract base64 part
+                    const base64Data = imgSrc.split(',')[1];
+                    const imgBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+                    
+                    const image = await pdfDoc.embedJpg(imgBytes);
+                    
+                    // A4 Size: [595.28, 841.89]
+                    const page = pdfDoc.addPage(PageSizes.A4);
+                    const { width, height } = page.getSize();
+                    
+                    // Calculate scale to fit within A4 while maintaining aspect ratio
+                    const imgDims = image.scale(1);
+                    const scale = Math.min(width / imgDims.width, height / imgDims.height);
+                    
+                    const scaledWidth = imgDims.width * scale;
+                    const scaledHeight = imgDims.height * scale;
+                    
+                    // Center the image
+                    const x = (width - scaledWidth) / 2;
+                    const y = (height - scaledHeight) / 2;
+
+                    page.drawImage(image, {
+                        x: x,
+                        y: y,
+                        width: scaledWidth,
+                        height: scaledHeight,
+                    });
+                }
+
+                const pdfBytes = await pdfDoc.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+
+                outputArea.innerHTML = `
+                    <div style="margin-top:20px; padding:20px; background:#e8f5e9; border-radius:10px; border:1px solid #28a745; text-align:center;">
+                        <p style="color:#28a745; font-weight:bold; margin-bottom: 10px;">PDF Created Successfully!</p>
+                        <a href="${url}" download="scanned_document.pdf" class="btn-process btn-success" style="text-decoration:none; display:block; margin-bottom:10px;">Download PDF</a>
+                        <button onclick="location.reload()" class="btn-process" style="background:#6c757d; display:block; width:100%; border:none;">Start New Scan</button>
+                    </div>
+                `;
+
+            } catch (err) {
+                console.error("PDF Generation Error:", err);
+                alert("Failed to create PDF. Please try again.");
+                generateBtn.style.display = 'block';
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+
+        // Start camera on load
+        document.addEventListener('DOMContentLoaded', initCamera);
+
+    </script>
+</body>
+</html>

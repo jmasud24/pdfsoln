@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to JPG - One Page Tools</title>
+    <link rel="stylesheet" href="../style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+</head>
+<body>
+<header id="header-placeholder"></header>
+<div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper">
+        <div class="tool-box">
+            <h1>PDF to JPG</h1>
+            <p>Convert your PDF pages into images instantly.</p>
+            
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <p id="uploadStatus">Tap to upload PDF</p>
+                <input type="file" id="fileInput" hidden accept=".pdf">
+            </div>
+
+            <button id="processBtn" class="btn-process" disabled>Convert Now</button>
+            
+            <div id="previewArea">
+                <!-- Converted images will appear here -->
+            </div>
+        </div>
+    </div>
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+    <div id="footer-placeholder"></div>
+
+
+
+<script src="../components/components.js"></script>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        let pdfData = null;
+
+        document.getElementById('fileInput').onchange = async (e) => {
+            const file = e.target.files[0];
+            if(file) {
+                pdfData = await file.arrayBuffer();
+                document.getElementById('uploadStatus').innerText = "Selected: " + file.name;
+                document.getElementById('processBtn').disabled = false;
+            }
+        };
+
+        document.getElementById('processBtn').onclick = async () => {
+            const btn = document.getElementById('processBtn');
+            btn.innerText = "Processing...";
+            const pdf = await pdfjsLib.getDocument({data: pdfData}).promise;
+            const previewArea = document.getElementById('previewArea');
+            previewArea.innerHTML = "";
+
+            for(let i=1; i<=pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({scale: 1.2});
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.height = viewport.height;
+                canvas.width = viewport.width;
+
+                await page.render({canvasContext: context, viewport: viewport}).promise;
+                const imgUrl = canvas.toDataURL('image/jpeg');
+                
+                const card = document.createElement('div');
+                card.className = 'img-card';
+                card.innerHTML = `
+                    <img src="${imgUrl}">
+                    <a href="${imgUrl}" download="page-${i}.jpg" class="download-btn">Download Page ${i}</a>
+                `;
+                previewArea.appendChild(card);
+            }
+            btn.innerText = "Convert Now";
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JPG to PDF - Convert Images to PDF Online | One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    <!-- PDF-Lib Library for PDF Generation -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    
+    <style>
+        .file-list-container {
+            margin: 25px 0;
+            text-align: left;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+            display: none;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f9f9f9;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            border-left: 4px solid #28a745; /* Green for images */
+            font-size: 14px;
+        }
+
+        .file-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 70%;
+            font-weight: 600;
+        }
+
+        .remove-btn {
+            color: #ff4d4d;
+            cursor: pointer;
+            font-weight: 800;
+            padding: 5px;
+        }
+
+        .loader {
+            display: none;
+            margin: 20px 0;
+            font-weight: bold;
+            color: var(--primary-red);
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper">
+        <div class="tool-box">
+            <h1>JPG to PDF</h1>
+            <p>Convert your JPG/JPEG images into a single PDF document in seconds.</p>
+
+            <!-- Multi-image Upload Area -->
+            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <p id="uploadStatus">Click or Drag JPG images here</p>
+                <input type="file" id="fileInput" hidden multiple accept="image/jpeg, image/jpg">
+            </div>
+
+            <!-- List of selected images -->
+            <div class="file-list-container" id="fileListContainer">
+                <!-- Image items will be injected here -->
+            </div>
+
+            <div id="loader" class="loader">Converting images to PDF, please wait...</div>
+
+            <button id="processBtn" class="btn-process" disabled>Convert to PDF</button>
+            
+            <div id="outputArea"></div>
+        </div>
+    </div>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+    <!-- Script to Load Header and Footer Components -->
+    <script src="../components/components.js"></script>
+
+    <!-- JPG to PDF Logic -->
+    <script>
+        const { PDFDocument } = PDFLib;
+        let selectedFiles = [];
+
+        const fileInput = document.getElementById('fileInput');
+        const fileListContainer = document.getElementById('fileListContainer');
+        const processBtn = document.getElementById('processBtn');
+
+        fileInput.onchange = (e) => {
+            handleFiles(e.target.files);
+        };
+
+        function handleFiles(files) {
+            const newFiles = Array.from(files);
+            selectedFiles = [...selectedFiles, ...newFiles];
+            updateUI();
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            updateUI();
+        }
+
+        function updateUI() {
+            if (selectedFiles.length > 0) {
+                fileListContainer.style.display = 'block';
+                fileListContainer.innerHTML = selectedFiles.map((file, index) => `
+                    <div class="file-item">
+                        <span class="file-name">${index + 1}. ${file.name}</span>
+                        <span class="remove-btn" onclick="removeFile(${index})">✕</span>
+                    </div>
+                `).join('');
+                processBtn.disabled = false;
+                document.getElementById('uploadStatus').innerText = selectedFiles.length + " image(s) selected";
+            } else {
+                fileListContainer.style.display = 'none';
+                processBtn.disabled = true;
+                document.getElementById('uploadStatus').innerText = "Click or Drag JPG images here";
+            }
+        }
+
+        processBtn.onclick = async () => {
+            const loader = document.getElementById('loader');
+            const outputArea = document.getElementById('outputArea');
+            
+            processBtn.disabled = true;
+            loader.style.display = 'block';
+            outputArea.innerHTML = '';
+
+            try {
+                const pdfDoc = await PDFDocument.create();
+
+                for (const file of selectedFiles) {
+                    const imgBytes = await file.arrayBuffer();
+                    const jpgImage = await pdfDoc.embedJpg(imgBytes);
+                    
+                    // Add a page with the same dimensions as the image
+                    const page = pdfDoc.addPage([jpgImage.width, jpgImage.height]);
+                    
+                    page.drawImage(jpgImage, {
+                        x: 0,
+                        y: 0,
+                        width: jpgImage.width,
+                        height: jpgImage.height,
+                    });
+                }
+
+                const pdfBytes = await pdfDoc.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+
+                outputArea.innerHTML = `
+                    <div style="margin-top:20px;">
+                        <a href="${url}" download="images_to_pdf.pdf" class="btn-process btn-success" style="text-decoration:none; display:block;">Download PDF File</a>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+                alert("Error: Could not process images. Ensure they are valid JPG files.");
+            } finally {
+                loader.style.display = 'none';
+                processBtn.disabled = false;
+            }
+        };
+
+        // Drag and Drop
+        const dropZone = document.getElementById('dropZone');
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('dragover'); };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        };
+    </script>
+</body>
+</html>

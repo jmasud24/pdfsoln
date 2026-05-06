@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Word to PDF - Convert DOCX to PDF Online | One Page Tools</title>
+    <!-- Linking Master CSS -->
+    <link rel="stylesheet" href="../style.css">
+    
+    <!-- Word to HTML conversion library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- HTML to PDF conversion library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        .loader {
+            display: none;
+            margin: 20px 0;
+            font-weight: bold;
+            color: var(--primary-red);
+        }
+        /* Hidden container for conversion process */
+        #temp-content {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <header id="header-placeholder"></header>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div class="tool-wrapper">
+        <div class="tool-box">
+            <h1>Word to PDF</h1>
+            <p>Convert your DOCX files into high-quality PDF documents instantly.</p>
+
+            <!-- File Upload Area -->
+            <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()">
+                <p id="uploadStatus">Click or Drag Word (.docx) file here</p>
+                <input type="file" id="fileInput" hidden accept=".docx">
+            </div>
+
+            <div id="loader" class="loader">Converting Word to PDF, please wait...</div>
+
+            <button id="processBtn" class="btn-process" disabled>Convert to PDF</button>
+            
+            <div id="outputArea"></div>
+        </div>
+    </div>
+
+    <!-- Hidden element for processing -->
+    <div id="temp-content"></div>
+
+    <div class="ad-container">
+        Advertisement Placeholder (728x90)
+    </div>
+
+    <div id="footer-placeholder"></div>
+
+    <!-- Script to Load Header and Footer Components -->
+    <script src="../components/components.js"></script>
+
+    <!-- Word to PDF Logic -->
+    <script>
+        let selectedFile = null;
+        const fileInput = document.getElementById('fileInput');
+        const processBtn = document.getElementById('processBtn');
+        const uploadStatus = document.getElementById('uploadStatus');
+
+        // Handle File Selection
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                selectedFile = file;
+                uploadStatus.innerText = "Selected: " + file.name;
+                processBtn.disabled = false;
+            }
+        };
+
+        // Processing Logic
+        processBtn.onclick = async () => {
+            const loader = document.getElementById('loader');
+            const outputArea = document.getElementById('outputArea');
+            const tempContent = document.getElementById('temp-content');
+            
+            processBtn.disabled = true;
+            loader.style.display = 'block';
+            outputArea.innerHTML = '';
+
+            try {
+                const arrayBuffer = await selectedFile.arrayBuffer();
+                
+                // 1. Convert DOCX to HTML using Mammoth
+                const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+                tempContent.innerHTML = result.value;
+
+                // 2. Convert HTML to PDF using html2pdf
+                const opt = {
+                    margin: 1,
+                    filename: selectedFile.name.replace('.docx', '') + '.pdf',
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2 },
+                    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+                };
+
+                // Generate PDF and get as Blob to show download link
+                const pdfBlob = await html2pdf().set(opt).from(tempContent).outputPdf('blob');
+                const url = URL.createObjectURL(pdfBlob);
+
+                outputArea.innerHTML = `
+                    <div style="margin-top:20px;">
+                        <a href="${url}" download="${opt.filename}" class="btn-process btn-success" style="text-decoration:none; display:block;">Download PDF File</a>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+                alert("Error: Could not convert file. Ensure it is a valid .docx file.");
+            } finally {
+                loader.style.display = 'none';
+                processBtn.disabled = false;
+            }
+        };
+
+        // Drag and Drop Support
+        const dropZone = document.getElementById('dropZone');
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('dragover'); };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.docx')) {
+                selectedFile = file;
+                uploadStatus.innerText = "Selected: " + file.name;
+                processBtn.disabled = false;
+            } else {
+                alert("Please drop a valid .docx file.");
+            }
+        };
+    </script>
+</body>
+</html>
